@@ -44,9 +44,9 @@ void axi_dma::create_desc_ring(std::size_t buffer_count)
 {
     sg_desc_chain = {reinterpret_cast<sg_descriptor *>(udmabuf.virt_addr), buffer_count};
     
-    const uintptr_t desc_phys_base_addr = udmabuf.phys_addr;
-    uintptr_t next_desc = desc_phys_base_addr + sizeof(sg_descriptor);
-    uintptr_t buf_addr = desc_phys_base_addr + sg_desc_chain.size();
+    const uintptr_t &desc_base_phys_addr = udmabuf.phys_addr; // just an alias for clarity
+    uintptr_t next_desc = desc_base_phys_addr + sizeof(sg_descriptor);
+    uintptr_t buf_addr = desc_base_phys_addr + sg_desc_chain.size();
 
     for (auto& d : sg_desc_chain)
     {
@@ -77,9 +77,9 @@ void axi_dma::create_desc_ring(std::size_t buffer_count)
     // Create a ring by pointing the last descriptor back to the first
     auto& last_desc_ptr = --(sg_desc_chain.end());
 #if (__WORDSIZE == 64)
-    last_desc_ptr->next_desc_msb = upper_32_bits(desc_phys_base_addr);
+    last_desc_ptr->next_desc_msb = upper_32_bits(desc_base_phys_addr);
 #endif // #if (__WORDSIZE == 64)
-    last_desc_ptr->next_desc = lower_32_bits(desc_phys_base_addr);
+    last_desc_ptr->next_desc = lower_32_bits(desc_base_phys_addr);
 }
 
 /**
@@ -89,8 +89,8 @@ axi_dma::axi_dma(const std::string& udmabuf_name, size_t udmabuf_size, size_t ud
                  const std::string& uio_device_name, dma_mode mode, transfer_direction direction,
                  size_t buffer_size)
 
-    : udmabuf(udmabuf_name, udmabuf_size, udmabuf_offset),
-      uio(uio_device_name),
+    : udmabuf{udmabuf_name, udmabuf_size, udmabuf_offset},
+      uio{uio_device_name},
       mode(mode),
       direction(direction),
 #ifdef USE_DATA_REALIGNMENT_ENGINE
@@ -183,7 +183,7 @@ bool axi_dma::start_normal()
     control.set_irq_threshold(1u);
 
     // Set current descriptor pointer to the first descriptor
-    const uintptr_t first_desc = udmabuf.phys_addr;
+    const uintptr_t &first_desc = udmabuf.phys_addr;
 
 #if (__WORDSIZE == 64)
     registers.current_desc_high, upper_32_bits(first_desc);
@@ -217,7 +217,7 @@ bool axi_dma::start_cyclic()
     control.set_irq_threshold(1u);
 
     // Set current descriptor pointer to the first descriptor
-    const uintptr_t first_desc = udmabuf.phys_addr;
+    const uintptr_t &first_desc = udmabuf.phys_addr;
 
 #if (__WORDSIZE == 64)
     registers.current_desc_high = upper_32_bits(first_desc);
@@ -408,7 +408,8 @@ bool axi_dma::transfer_buffer(sg_descriptor &desc, size_t len)
 
     // Update tail descriptor to point to the current buffer descriptor
     ptrdiff_t desc_offset = sg_descriptor_chain::distance(sg_desc_chain.begin(), sg_descriptor_chain::iterator{&desc});
-    const uintptr_t tail_desc = udmabuf.phys_addr + sizeof(sg_descriptor) * desc_offset;
+    const uintptr_t &desc_base_phys_addr = udmabuf.phys_addr; // just an alias for clarity
+    const uintptr_t tail_desc = desc_base_phys_addr + sizeof(sg_descriptor) * desc_offset;
 
 #if (__WORDSIZE == 64)
     registers_base->mm2s.tail_desc_high = upper_32_bits(tail_desc);
@@ -461,7 +462,7 @@ void axi_dma::clear_complete_flag(sg_descriptor &desc)
  * @brief Get the maximum amount of data that can be stored in this buffer
  * @return size in bytes
  */
-size_t axi_dma::get_buffer_size()
+size_t axi_dma::get_buffer_size() const
 {
     return buffer_size;
 }
@@ -487,7 +488,7 @@ size_t axi_dma::get_buffer_len(const sg_descriptor &desc) const
  * @param desc Buffer descriptor
  * @return a pointer to virtual memory
  */
-uint8_t *axi_dma::get_virt_buffer_pointer(const sg_descriptor &desc)
+uint8_t *axi_dma::get_virt_buffer_pointer(const sg_descriptor &desc) const
 {
     return buffers + (sg_descriptor_chain::distance(sg_desc_chain.const_begin(), sg_descriptor_chain::const_iterator{&desc})) * buffer_size;
 }

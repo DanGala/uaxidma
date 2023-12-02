@@ -17,18 +17,18 @@ size_t dma_buffer::length()
 
 bool dma_buffer::set_payload(size_t len)
 {
-    if (len <= capacity_)
+    if (len > capacity_)
     {
-        length_ = len;
-        return true;
+        return false;
     }
 
-    return false;
+    length_ = len;
+    return true;
 }
 
-void dma_buffer_list::limit_active_references()
+dma_buffer_list::dma_buffer_list(bool ordered_acquire_release)
+    : limit_refs_(ordered_acquire_release)
 {
-    limit_refs_ = true;
 }
 
 void dma_buffer_list::add(const std::shared_ptr<dma_buffer>& ptr)
@@ -39,7 +39,7 @@ void dma_buffer_list::add(const std::shared_ptr<dma_buffer>& ptr)
 
 bool dma_buffer_list::empty() const
 {
-    return !available_;
+    return (limit_refs_ && !available_);
 }
 
 const std::shared_ptr<dma_buffer> &dma_buffer_list::peek_next() const
@@ -64,15 +64,12 @@ void dma_buffer_list::release(std::shared_ptr<dma_buffer>& ptr)
 uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset,
                  const std::string& axidma_uio_name, dma_mode mode, transfer_direction direction, size_t buffer_size)
 
-    : axidma(udmabuf_name, udmabuf_size, udmabuf_offset, axidma_uio_name, static_cast<axi_dma::dma_mode>(mode),
-             static_cast<axi_dma::transfer_direction>(direction), buffer_size),
+    : axidma{udmabuf_name, udmabuf_size, udmabuf_offset, axidma_uio_name, static_cast<axi_dma::dma_mode>(mode),
+             static_cast<axi_dma::transfer_direction>(direction), buffer_size},
       mode(mode),
-      direction(direction)
+      direction(direction),
+      buffers{(direction == transfer_direction::mem_to_dev)}
 {
-    if (mode != dma_mode::cyclic)
-    {
-        buffers.limit_active_references();
-    }
 }
 
 bool uaxidma::initialize()

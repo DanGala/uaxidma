@@ -44,9 +44,9 @@ public:
      */
     dma_buffer_list() = default;
     /**
-     * @brief Enables reference counting to protect against "forgot-to-release" types of errors
+     * @brief Construct an empty list of dma_buffer pointers with reference counting enabled
      */
-    void limit_active_references();
+    dma_buffer_list(bool ordered_acquire_release);
     /**
      * @brief Inserts a new element at the end of the list
      */
