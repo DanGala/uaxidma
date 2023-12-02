@@ -55,56 +55,56 @@ struct alignas(64) sg_descriptor
 class sg_descriptor_chain
 {
 public:
-    class sg_desc_iterator
+    class iterator
     {
         sg_descriptor* p_;
     public:
-        sg_desc_iterator(sg_descriptor *ptr);
-        sg_desc_iterator(const sg_desc_iterator& it);
+        iterator(sg_descriptor *ptr);
+        iterator(const iterator& it);
         sg_descriptor* operator-> () const;
         sg_descriptor& operator* () const;
         sg_descriptor& operator [] (int n) const;
-        sg_desc_iterator& operator++ ();
-        sg_desc_iterator operator++ (int);
-        sg_desc_iterator& operator-- ();
-        sg_desc_iterator operator-- (int);
-        sg_desc_iterator& operator+= (int n);
-        sg_desc_iterator& operator-= (int n);
-        bool operator== (const sg_desc_iterator& other);
-        bool operator!= (const sg_desc_iterator& other);
-        bool operator== (const sg_desc_iterator& other) const;
-        bool operator!= (const sg_desc_iterator& other) const;
+        iterator& operator++ ();
+        iterator operator++ (int);
+        iterator& operator-- ();
+        iterator operator-- (int);
+        iterator& operator+= (int n);
+        iterator& operator-= (int n);
+        bool operator== (const iterator& other);
+        bool operator!= (const iterator& other);
+        bool operator== (const iterator& other) const;
+        bool operator!= (const iterator& other) const;
 
-        friend std::ptrdiff_t operator- (sg_desc_iterator lhs, sg_desc_iterator rhs);
-        friend sg_desc_iterator operator+ (sg_desc_iterator lhs, int rhs);
-        friend sg_desc_iterator operator- (sg_desc_iterator lhs, int rhs);
-        friend sg_desc_iterator operator+ (int lhs, sg_desc_iterator rhs);
+        friend std::ptrdiff_t operator- (iterator lhs, iterator rhs);
+        friend iterator operator+ (iterator lhs, int rhs);
+        friend iterator operator- (iterator lhs, int rhs);
+        friend iterator operator+ (int lhs, iterator rhs);
     };
 
-    class sg_desc_const_iterator
+    class const_iterator
     {
         const sg_descriptor* cp_;
     public:
-        sg_desc_const_iterator(const sg_descriptor *ptr);
-        sg_desc_const_iterator(const sg_desc_const_iterator& it);
+        const_iterator(const sg_descriptor *ptr);
+        const_iterator(const const_iterator& it);
         const sg_descriptor* operator-> () const;
         const sg_descriptor& operator* () const;
         const sg_descriptor& operator [] (int n) const;
-        sg_desc_const_iterator& operator++ ();
-        sg_desc_const_iterator operator++ (int);
-        sg_desc_const_iterator& operator-- ();
-        sg_desc_const_iterator operator-- (int);
-        sg_desc_const_iterator& operator+= (int n);
-        sg_desc_const_iterator& operator-= (int n);
-        bool operator== (const sg_desc_const_iterator& other);
-        bool operator!= (const sg_desc_const_iterator& other);
-        bool operator== (const sg_desc_const_iterator& other) const;
-        bool operator!= (const sg_desc_const_iterator& other) const;
+        const_iterator& operator++ ();
+        const_iterator operator++ (int);
+        const_iterator& operator-- ();
+        const_iterator operator-- (int);
+        const_iterator& operator+= (int n);
+        const_iterator& operator-= (int n);
+        bool operator== (const const_iterator& other);
+        bool operator!= (const const_iterator& other);
+        bool operator== (const const_iterator& other) const;
+        bool operator!= (const const_iterator& other) const;
 
-        friend std::ptrdiff_t operator- (sg_desc_const_iterator lhs, sg_desc_const_iterator rhs);
-        friend sg_desc_const_iterator operator+ (sg_desc_const_iterator lhs, int rhs);
-        friend sg_desc_const_iterator operator- (sg_desc_const_iterator lhs, int rhs);
-        friend sg_desc_const_iterator operator+ (int lhs, sg_desc_const_iterator rhs);
+        friend std::ptrdiff_t operator- (const_iterator lhs, const_iterator rhs);
+        friend const_iterator operator+ (const_iterator lhs, int rhs);
+        friend const_iterator operator- (const_iterator lhs, int rhs);
+        friend const_iterator operator+ (int lhs, const_iterator rhs);
     };
 
     sg_descriptor_chain() = default;
@@ -113,19 +113,19 @@ public:
     const sg_descriptor& operator[](std::size_t idx) const;
     std::size_t size() const;
     std::size_t length() const;
-    sg_desc_iterator begin();
-    sg_desc_const_iterator const_begin() const;
-    const sg_desc_iterator begin() const;
-    sg_desc_iterator end();
-    sg_desc_const_iterator const_end() const;
-    const sg_desc_iterator end() const;
-    sg_desc_iterator next(sg_desc_iterator& it);
-    sg_desc_const_iterator next(sg_desc_const_iterator& it);
-    const sg_desc_iterator next(const sg_desc_iterator& it) const;
-    const sg_desc_const_iterator next(const sg_desc_const_iterator& it) const;
+    iterator begin();
+    const_iterator const_begin() const;
+    const iterator begin() const;
+    iterator end();
+    const_iterator const_end() const;
+    const iterator end() const;
+    iterator next(iterator& it);
+    const_iterator next(const_iterator& it);
+    const iterator next(const iterator& it) const;
+    const const_iterator next(const const_iterator& it) const;
 
-    static std::size_t distance(const sg_desc_iterator& first, const sg_desc_iterator& last);
-    static std::size_t distance(const sg_desc_const_iterator& first, const sg_desc_const_iterator& last);
+    static std::size_t distance(const iterator& first, const iterator& last);
+    static std::size_t distance(const const_iterator& first, const const_iterator& last);
 
 private:
     sg_descriptor* head_;

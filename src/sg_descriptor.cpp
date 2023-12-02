@@ -1,208 +1,208 @@
 #include "sg_descriptor.h"
 
-sg_descriptor_chain::sg_desc_iterator::sg_desc_iterator(sg_descriptor *ptr)
+sg_descriptor_chain::iterator::iterator(sg_descriptor *ptr)
     : p_(ptr)
 {
 }
 
-sg_descriptor_chain::sg_desc_iterator::sg_desc_iterator(const sg_desc_iterator& it)
+sg_descriptor_chain::iterator::iterator(const iterator& it)
     : p_(it.p_)
 {
 }
 
-sg_descriptor* sg_descriptor_chain::sg_desc_iterator::operator-> () const
+sg_descriptor* sg_descriptor_chain::iterator::operator-> () const
 {
     return p_;
 }
 
-sg_descriptor& sg_descriptor_chain::sg_desc_iterator::operator* () const
+sg_descriptor& sg_descriptor_chain::iterator::operator* () const
 {
     return *p_;
 }
 
-sg_descriptor& sg_descriptor_chain::sg_desc_iterator::operator [] (int n) const
+sg_descriptor& sg_descriptor_chain::iterator::operator [] (int n) const
 {
     return *(p_ + n);
 }
 
-sg_descriptor_chain::sg_desc_iterator& sg_descriptor_chain::sg_desc_iterator::operator++ ()
+sg_descriptor_chain::iterator& sg_descriptor_chain::iterator::operator++ ()
 {
     ++p_;
     return *this;
 }
 
-sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::sg_desc_iterator::operator++ (int)
+sg_descriptor_chain::iterator sg_descriptor_chain::iterator::operator++ (int)
 {
-    sg_desc_iterator tmp = *this;
+    iterator tmp = *this;
     ++p_;
     return tmp;
 }
 
-sg_descriptor_chain::sg_desc_iterator& sg_descriptor_chain::sg_desc_iterator::operator-- ()
+sg_descriptor_chain::iterator& sg_descriptor_chain::iterator::operator-- ()
 {
     --p_;
     return *this;
 }
 
-sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::sg_desc_iterator::operator-- (int)
+sg_descriptor_chain::iterator sg_descriptor_chain::iterator::operator-- (int)
 {
-    sg_desc_iterator tmp = *this;
+    iterator tmp = *this;
     --p_;
     return tmp;
 }
 
-sg_descriptor_chain::sg_desc_iterator& sg_descriptor_chain::sg_desc_iterator::operator+= (int n)
+sg_descriptor_chain::iterator& sg_descriptor_chain::iterator::operator+= (int n)
 {
     p_ += n;
     return *this;
 }
 
-sg_descriptor_chain::sg_desc_iterator& sg_descriptor_chain::sg_desc_iterator::operator-= (int n)
+sg_descriptor_chain::iterator& sg_descriptor_chain::iterator::operator-= (int n)
 {
     p_ -= n;
     return *this;
 }
 
-bool sg_descriptor_chain::sg_desc_iterator::operator== (const sg_desc_iterator& other)
+bool sg_descriptor_chain::iterator::operator== (const iterator& other)
 {
     return (p_ == other.p_);
 }
 
-bool sg_descriptor_chain::sg_desc_iterator::operator!= (const sg_desc_iterator& other)
+bool sg_descriptor_chain::iterator::operator!= (const iterator& other)
 {
     return (p_ != other.p_);
 }
 
-bool sg_descriptor_chain::sg_desc_iterator::operator== (const sg_desc_iterator& other) const
+bool sg_descriptor_chain::iterator::operator== (const iterator& other) const
 {
     return (p_ == other.p_); 
 }
 
-bool sg_descriptor_chain::sg_desc_iterator::operator!= (const sg_desc_iterator& other) const
+bool sg_descriptor_chain::iterator::operator!= (const iterator& other) const
 {
     return (p_ != other.p_); 
 }
 
-sg_descriptor_chain::sg_desc_const_iterator::sg_desc_const_iterator(const sg_descriptor *ptr)
+sg_descriptor_chain::const_iterator::const_iterator(const sg_descriptor *ptr)
     : cp_(ptr)
 {
 }
 
-sg_descriptor_chain::sg_desc_const_iterator::sg_desc_const_iterator(const sg_desc_const_iterator& it)
+sg_descriptor_chain::const_iterator::const_iterator(const const_iterator& it)
     : cp_(it.cp_)
 {
 }
 
-const sg_descriptor* sg_descriptor_chain::sg_desc_const_iterator::operator-> () const
+const sg_descriptor* sg_descriptor_chain::const_iterator::operator-> () const
 {
     return cp_;
 }
 
-const sg_descriptor& sg_descriptor_chain::sg_desc_const_iterator::operator* () const
+const sg_descriptor& sg_descriptor_chain::const_iterator::operator* () const
 {
     return *cp_;
 }
 
-const sg_descriptor& sg_descriptor_chain::sg_desc_const_iterator::operator [] (int n) const
+const sg_descriptor& sg_descriptor_chain::const_iterator::operator [] (int n) const
 {
     return *(cp_ + n);
 }
 
-sg_descriptor_chain::sg_desc_const_iterator& sg_descriptor_chain::sg_desc_const_iterator::operator++ ()
+sg_descriptor_chain::const_iterator& sg_descriptor_chain::const_iterator::operator++ ()
 {
     ++cp_;
     return *this;
 }
 
-sg_descriptor_chain::sg_desc_const_iterator sg_descriptor_chain::sg_desc_const_iterator::operator++ (int)
+sg_descriptor_chain::const_iterator sg_descriptor_chain::const_iterator::operator++ (int)
 {
-    sg_desc_const_iterator tmp = *this;
+    const_iterator tmp = *this;
     ++cp_;
     return tmp;
 }
 
-sg_descriptor_chain::sg_desc_const_iterator& sg_descriptor_chain::sg_desc_const_iterator::operator-- ()
+sg_descriptor_chain::const_iterator& sg_descriptor_chain::const_iterator::operator-- ()
 {
     --cp_;
     return *this;
 }
 
-sg_descriptor_chain::sg_desc_const_iterator sg_descriptor_chain::sg_desc_const_iterator::operator-- (int)
+sg_descriptor_chain::const_iterator sg_descriptor_chain::const_iterator::operator-- (int)
 {
-    sg_desc_const_iterator tmp = *this;
+    const_iterator tmp = *this;
     --cp_;
     return tmp;
 }
 
-sg_descriptor_chain::sg_desc_const_iterator& sg_descriptor_chain::sg_desc_const_iterator::operator+= (int n)
+sg_descriptor_chain::const_iterator& sg_descriptor_chain::const_iterator::operator+= (int n)
 {
     cp_ += n;
     return *this;
 }
 
-sg_descriptor_chain::sg_desc_const_iterator& sg_descriptor_chain::sg_desc_const_iterator::operator-= (int n)
+sg_descriptor_chain::const_iterator& sg_descriptor_chain::const_iterator::operator-= (int n)
 {
     cp_ -= n;
     return *this;
 }
 
-bool sg_descriptor_chain::sg_desc_const_iterator::operator== (const sg_desc_const_iterator& other)
+bool sg_descriptor_chain::const_iterator::operator== (const const_iterator& other)
 {
     return (cp_ == other.cp_);
 }
 
-bool sg_descriptor_chain::sg_desc_const_iterator::operator!= (const sg_desc_const_iterator& other)
+bool sg_descriptor_chain::const_iterator::operator!= (const const_iterator& other)
 {
     return (cp_ != other.cp_);
 }
 
-bool sg_descriptor_chain::sg_desc_const_iterator::operator== (const sg_desc_const_iterator& other) const
+bool sg_descriptor_chain::const_iterator::operator== (const const_iterator& other) const
 {
     return (cp_ == other.cp_);
 }
 
-bool sg_descriptor_chain::sg_desc_const_iterator::operator!= (const sg_desc_const_iterator& other) const
+bool sg_descriptor_chain::const_iterator::operator!= (const const_iterator& other) const
 {
     return (cp_ != other.cp_);
 }
 
 
-std::ptrdiff_t operator- (sg_descriptor_chain::sg_desc_iterator lhs, sg_descriptor_chain::sg_desc_iterator rhs)
+std::ptrdiff_t operator- (sg_descriptor_chain::iterator lhs, sg_descriptor_chain::iterator rhs)
 {
     return lhs.p_ - rhs.p_; 
 }
 
-sg_descriptor_chain::sg_desc_iterator operator+ (sg_descriptor_chain::sg_desc_iterator lhs, int rhs)
+sg_descriptor_chain::iterator operator+ (sg_descriptor_chain::iterator lhs, int rhs)
 {
     return lhs += rhs; 
 }
 
-sg_descriptor_chain::sg_desc_iterator operator- (sg_descriptor_chain::sg_desc_iterator lhs, int rhs)
+sg_descriptor_chain::iterator operator- (sg_descriptor_chain::iterator lhs, int rhs)
 {
     return lhs -= rhs; 
 }
 
-sg_descriptor_chain::sg_desc_iterator operator+ (int lhs, sg_descriptor_chain::sg_desc_iterator rhs)
+sg_descriptor_chain::iterator operator+ (int lhs, sg_descriptor_chain::iterator rhs)
 {
     return rhs += lhs; 
 }
 
-std::ptrdiff_t operator- (sg_descriptor_chain::sg_desc_const_iterator lhs, sg_descriptor_chain::sg_desc_const_iterator rhs)
+std::ptrdiff_t operator- (sg_descriptor_chain::const_iterator lhs, sg_descriptor_chain::const_iterator rhs)
 {
     return lhs.cp_ - rhs.cp_; 
 }
 
-sg_descriptor_chain::sg_desc_const_iterator operator+ (sg_descriptor_chain::sg_desc_const_iterator lhs, int rhs)
+sg_descriptor_chain::const_iterator operator+ (sg_descriptor_chain::const_iterator lhs, int rhs)
 {
     return lhs += rhs; 
 }
 
-sg_descriptor_chain::sg_desc_const_iterator operator- (sg_descriptor_chain::sg_desc_const_iterator lhs, int rhs)
+sg_descriptor_chain::const_iterator operator- (sg_descriptor_chain::const_iterator lhs, int rhs)
 {
     return lhs -= rhs; 
 }
 
-sg_descriptor_chain::sg_desc_const_iterator operator+ (int lhs, sg_descriptor_chain::sg_desc_const_iterator rhs)
+sg_descriptor_chain::const_iterator operator+ (int lhs, sg_descriptor_chain::const_iterator rhs)
 {
     return rhs += lhs; 
 }
@@ -232,70 +232,70 @@ std::size_t sg_descriptor_chain::length() const
     return distance(begin(), end());
 }
 
-sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::begin()
+sg_descriptor_chain::iterator sg_descriptor_chain::begin()
 {
-    return sg_desc_iterator(head_);
+    return iterator(head_);
 }
 
-sg_descriptor_chain::sg_desc_const_iterator sg_descriptor_chain::const_begin() const
+sg_descriptor_chain::const_iterator sg_descriptor_chain::const_begin() const
 {
-    return sg_desc_const_iterator(head_);
+    return const_iterator(head_);
 }
 
-const sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::begin() const
+const sg_descriptor_chain::iterator sg_descriptor_chain::begin() const
 {
-    return sg_desc_iterator(head_);
+    return iterator(head_);
 }
 
-sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::end()
+sg_descriptor_chain::iterator sg_descriptor_chain::end()
 {
-    return sg_desc_iterator(head_ + size_);
+    return iterator(head_ + size_);
 }
 
-sg_descriptor_chain::sg_desc_const_iterator sg_descriptor_chain::const_end() const
+sg_descriptor_chain::const_iterator sg_descriptor_chain::const_end() const
 {
-    return sg_desc_const_iterator(head_ + size_);
+    return const_iterator(head_ + size_);
 }
 
-const sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::end() const
+const sg_descriptor_chain::iterator sg_descriptor_chain::end() const
 {
-    return sg_desc_iterator(head_ + size_);
+    return iterator(head_ + size_);
 }
 
-sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::next(sg_desc_iterator& it)
+sg_descriptor_chain::iterator sg_descriptor_chain::next(iterator& it)
 {
-    return (it == end()) ? begin() : sg_desc_iterator(it)++;
+    return (it == end()) ? begin() : iterator(it)++;
 }
 
-sg_descriptor_chain::sg_desc_const_iterator sg_descriptor_chain::next(sg_desc_const_iterator& it)
+sg_descriptor_chain::const_iterator sg_descriptor_chain::next(const_iterator& it)
 {
-    return (it == const_end()) ? const_begin() : sg_desc_const_iterator(it)++;
+    return (it == const_end()) ? const_begin() : const_iterator(it)++;
 }
 
-const sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::next(const sg_desc_iterator& it) const
+const sg_descriptor_chain::iterator sg_descriptor_chain::next(const iterator& it) const
 {
-    return (it == end()) ? begin() : sg_desc_iterator(it)++;
+    return (it == end()) ? begin() : iterator(it)++;
 }
 
-const sg_descriptor_chain::sg_desc_const_iterator sg_descriptor_chain::next(const sg_desc_const_iterator& it) const
+const sg_descriptor_chain::const_iterator sg_descriptor_chain::next(const const_iterator& it) const
 {
-    return (it == const_end()) ? const_begin() : sg_desc_const_iterator(it)++;
+    return (it == const_end()) ? const_begin() : const_iterator(it)++;
 }
 
-std::size_t sg_descriptor_chain::distance(const sg_desc_iterator& first, const sg_desc_iterator& last)
+std::size_t sg_descriptor_chain::distance(const iterator& first, const iterator& last)
 {
     std::size_t hops = 0;
-    for (auto it = sg_desc_iterator(first); it != last; it++)
+    for (auto it = iterator(first); it != last; it++)
     {
         hops++; 
     }
     return hops;
 }
 
-std::size_t sg_descriptor_chain::distance(const sg_desc_const_iterator& first, const sg_desc_const_iterator& last)
+std::size_t sg_descriptor_chain::distance(const const_iterator& first, const const_iterator& last)
 {
     std::size_t hops = 0;
-    for (auto it = sg_desc_const_iterator(first); it != last; it++)
+    for (auto it = const_iterator(first); it != last; it++)
     {
         hops++; 
     }
