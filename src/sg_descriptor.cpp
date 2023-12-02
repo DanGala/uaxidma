@@ -227,6 +227,11 @@ std::size_t sg_descriptor_chain::size() const
     return size_;
 }
 
+std::size_t sg_descriptor_chain::length() const
+{
+    return distance(begin(), end());
+}
+
 sg_descriptor_chain::sg_desc_iterator sg_descriptor_chain::begin()
 {
     return sg_desc_iterator(head_);

@@ -38,7 +38,6 @@ public:
     ~axi_dma();
     bool initialize();
     bool start();
-    unsigned int get_buffer_count();
     void clean_interrupt();
     acquisition_result poll_interrupt(int timeout);
     bool transfer_buffer(sg_descriptor &desc, size_t len);

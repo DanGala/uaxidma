@@ -112,6 +112,7 @@ public:
     sg_descriptor& operator[](std::size_t idx);
     const sg_descriptor& operator[](std::size_t idx) const;
     std::size_t size() const;
+    std::size_t length() const;
     sg_desc_iterator begin();
     sg_desc_const_iterator const_begin() const;
     const sg_desc_iterator begin() const;

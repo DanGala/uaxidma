@@ -333,14 +333,6 @@ bool axi_dma::reset()
 }
 
 /**
- * @brief Gets the number of buffers available
- */
-unsigned int axi_dma::get_buffer_count()
-{
-    return sg_desc_chain.size() / sizeof(sg_descriptor);
-}
-
-/**
  * @brief Clears AXI DMA's interrupt flags from the DMASR register
  */
 void axi_dma::clean_interrupt()
