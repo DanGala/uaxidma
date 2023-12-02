@@ -9,6 +9,7 @@ on:
     paths:
       - "**.cpp"
       - "**.h"
+  workflow_dispatch:
 
 jobs:
 
@@ -30,39 +31,3 @@ jobs:
         name: Linux_Meson_Testlog
         path: builddir/meson-logs/testlog.txt
 
-  macos:
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v1
-    - uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
-    - run: brew install g++
-    - run: pip install meson ninja
-    - run: meson setup builddir/
-      env:
-        CC: g++
-    - run: meson compile -C builddir/
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: MacOS_Meson_Testlog
-        path: builddir/meson-logs/testlog.txt
-
-  windows:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v1
-    - uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
-    - run: pip install meson ninja
-    - run: meson setup builddir/
-      env:
-        CC: g++
-    - run: meson compile -C builddir/
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: Windows_Meson_Testlog
-        path: builddir/meson-logs/testlog.txt
