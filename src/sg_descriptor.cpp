@@ -1,5 +1,49 @@
 #include "sg_descriptor.h"
 
+sg_descriptor_handle::sg_descriptor_handle(sg_descriptor &desc)
+    : d(desc)
+{
+}
+
+bool sg_descriptor_handle::completed() const
+{
+    cstatusf_wrapper status{d.status};
+    bool complete = status.check_flags(statusf::complete);
+    if (complete)
+    {
+#ifdef __ARM_ARCH
+        // Avoid speculatively doing any work before the status is actually read
+        asm volatile("dmb sy");
+#endif
+    }
+    return complete;
+}
+
+void sg_descriptor_handle::clear_complete_flag()
+{
+    statusf_wrapper status{d.status};
+    status.clear_flags(statusf::complete);
+#ifdef __ARM_ARCH
+    // Avoid speculatively doing any work before the status is actually updated
+    asm volatile("dmb st");
+#endif
+}
+
+/**
+ * @brief Get the amount of data transferred by the buffer described by a descriptor
+ * @return length in bytes
+ */
+size_t sg_descriptor_handle::get_buffer_len() const
+{
+    cstatusf_wrapper status{d.status};
+    const size_t len = status.get_xfer_bytes();
+#ifdef __ARM_ARCH
+    // Avoid speculatively doing any work before the status is actually read
+    asm volatile("dmb sy");
+#endif
+    return len;
+}
+
 sg_descriptor_chain::iterator::iterator(sg_descriptor *ptr)
     : p_(ptr)
 {

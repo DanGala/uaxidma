@@ -52,6 +52,18 @@ struct alignas(64) sg_descriptor
     uint32_t reserved2[3];  //!< Used to ensure 16-word alignment
 };
 
+/**
+ * @brief Thin wrapper over a sg_descriptor to provide field setters and getters
+ */
+struct sg_descriptor_handle
+{
+    sg_descriptor_handle(sg_descriptor &desc);
+    bool completed() const;
+    void clear_complete_flag();
+    size_t get_buffer_len() const;
+    sg_descriptor &d;
+};
+
 class sg_descriptor_chain
 {
 public:

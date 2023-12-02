@@ -395,9 +395,8 @@ axi_dma::acquisition_result axi_dma::poll_interrupt(int timeout)
  * @brief Starts the AXI DMA transfer of the specified buffer descriptor
  * @param desc Buffer descriptor
  * @param len Transfer length
- * @return false on errors
  */
-bool axi_dma::transfer_buffer(sg_descriptor &desc, size_t len)
+void axi_dma::transfer_buffer(sg_descriptor &desc, size_t len)
 {
     controlf_wrapper control{desc.control};
     control.set_flags(controlf::sof | controlf::eof);
@@ -421,41 +420,6 @@ bool axi_dma::transfer_buffer(sg_descriptor &desc, size_t len)
 #endif
 
     registers_base->mm2s.tail_desc_low = lower_32_bits(tail_desc);
-
-    return true;
-}
-
-/**
- * @brief Checks if the buffer has been completed
- * @param desc Buffer descriptor
- * @return true for completed transfers, false otherwise
- */
-bool axi_dma::is_buffer_complete(const sg_descriptor &desc) const
-{
-    cstatusf_wrapper status{desc.status};
-    bool complete = status.check_flags(statusf::complete);
-    if (complete)
-    {
-        // Avoid speculatively doing any work before the status is actually read
-        // Note that for this function, acquire semantics apply when the buffer has been completed
-#ifdef __ARM_ARCH
-        asm volatile("dmb sy");
-#endif
-    }
-    return complete;
-}
-
-/**
- * @brief Reset the buffer complete bit in the Scatter Gather descriptor's status register
- * @param desc Buffer descriptor
- */
-void axi_dma::clear_complete_flag(sg_descriptor &desc)
-{
-    statusf_wrapper status{desc.status};
-    status.clear_flags(statusf::complete);
-#ifdef __ARM_ARCH
-    asm volatile("dmb st");
-#endif
 }
 
 /**
@@ -465,22 +429,6 @@ void axi_dma::clear_complete_flag(sg_descriptor &desc)
 size_t axi_dma::get_buffer_size() const
 {
     return buffer_size;
-}
-
-/**
- * @brief Get the amount of data transferred by the buffer described by a struct sg_descriptor
- * @param desc Buffer descriptor
- * @return length in bytes
- */
-size_t axi_dma::get_buffer_len(const sg_descriptor &desc) const
-{
-    cstatusf_wrapper status{desc.status};
-    const size_t len = status.get_xfer_bytes();
-    // Avoid speculatively doing any work before the status is actually read
-#ifdef __ARM_ARCH
-    asm volatile("dmb sy");
-#endif
-    return len;
 }
 
 /**

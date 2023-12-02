@@ -40,11 +40,8 @@ public:
     bool start();
     void clean_interrupt();
     acquisition_result poll_interrupt(int timeout);
-    bool transfer_buffer(sg_descriptor &desc, size_t len);
-    bool is_buffer_complete(const sg_descriptor &desc) const;
-    void clear_complete_flag(sg_descriptor &desc);
+    void transfer_buffer(sg_descriptor &desc, size_t len);
     size_t get_buffer_size() const;
-    size_t get_buffer_len(const sg_descriptor &desc) const;
     uint8_t *get_virt_buffer_pointer(const sg_descriptor &desc) const;
 
     sg_descriptor_chain sg_desc_chain;   //!< Scatter/Gather descriptor chain
