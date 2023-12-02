@@ -85,11 +85,11 @@ void axi_dma::create_desc_ring(std::size_t buffer_count)
 /**
  * @brief C'tor
  */
-axi_dma::axi_dma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset,
+axi_dma::axi_dma(const std::string& udmabuf_name, size_t udmabuf_size,
                  const std::string& uio_device_name, dma_mode mode, transfer_direction direction,
                  size_t buffer_size)
 
-    : udmabuf{udmabuf_name, udmabuf_size, udmabuf_offset},
+    : udmabuf{udmabuf_name, udmabuf_size},
       uio{uio_device_name},
       mode(mode),
       direction(direction),

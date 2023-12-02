@@ -61,10 +61,10 @@ void dma_buffer_list::release(std::shared_ptr<dma_buffer>& ptr)
     if (limit_refs_) available_++;
 }
 
-uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset,
-                 const std::string& axidma_uio_name, dma_mode mode, transfer_direction direction, size_t buffer_size)
+uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& axidma_uio_name,
+                 dma_mode mode, transfer_direction direction, size_t buffer_size)
 
-    : axidma{udmabuf_name, udmabuf_size, udmabuf_offset, axidma_uio_name, static_cast<axi_dma::dma_mode>(mode),
+    : axidma{udmabuf_name, udmabuf_size, axidma_uio_name, static_cast<axi_dma::dma_mode>(mode),
              static_cast<axi_dma::transfer_direction>(direction), buffer_size},
       mode(mode),
       direction(direction),

@@ -32,7 +32,7 @@ public:
         timeout = 0
     };
 
-    explicit axi_dma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset, const std::string& uio_device_name,
+    explicit axi_dma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& uio_device_name,
             dma_mode mode, transfer_direction direction, size_t buffer_size);
     axi_dma() = delete;
     ~axi_dma();

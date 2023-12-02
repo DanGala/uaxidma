@@ -20,7 +20,7 @@
  * @brief Initialize the udmabuf instance and map the underlying buffer into user space memory
  * @param name Absolute path to the udmabuf device node in the /dev directory
  */
-u_dma_buf::u_dma_buf(const std::string& name, size_t size, size_t offset)
+u_dma_buf::u_dma_buf(const std::string& name, size_t size)
 {
     phys_addr = static_cast<uintptr_t>(read_property("/sys/class/u-dma-buf/" + name + "/phys_addr", "%" SCNxPTR));
     if (phys_addr == 0)
@@ -29,21 +29,12 @@ u_dma_buf::u_dma_buf(const std::string& name, size_t size, size_t offset)
     }
 
     size_t max_size = read_property("/sys/class/u-dma-buf/" + name + "/size", "%" SCNd64);
-    if ((max_size == 0) || ((size + offset) > max_size))
+    if ((max_size == 0) || (size > max_size))
     {
         abort();
     }
 
-    if (size != 0)
-    {
-        size = size;
-        offset = offset;
-    }
-    else
-    {
-        size = max_size;
-        offset = 0U;
-    }
+    size = (size != 0) ? size : max_size;
 
     map("/dev/" + name);
 }
@@ -83,7 +74,7 @@ void u_dma_buf::map(const std::string& file)
     }
 
     virt_addr
-        = static_cast<uint8_t *>(mmap(nullptr, size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, offset));
+        = static_cast<uint8_t *>(mmap(nullptr, size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0));
     if (virt_addr == MAP_FAILED)
     {
         abort();

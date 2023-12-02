@@ -108,12 +108,7 @@ public:
      * 
      * A value of 0 indicates all memory reserved to the udabuf buffer will be used.
      * A value greater than 0 indicates that <em>udmabuf_size</em> bytes of the udmabuf buffer will be used,
-     * starting from <em>udmabuf_offset</em> bytes after the udmabuf buffer base address.
-     *
-     * @param udmabuf_offset in bytes with respect to the udmabuf buffer base address.
-     * 
-     * To be used in conjunction with <em>udmabuf_size</em>.
-     * This setting shall be ignored when <em>udmabuf_size</em> is set to 0.
+     * starting from the udmabuf buffer base address.
      * 
      * @param axidma_uio_name of the UIO device associated to the AXI-DMA.
      *
@@ -125,7 +120,7 @@ public:
      * 
      * @param buffer_size size of each buffer in bytes
      */
-    uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset, const std::string& axidma_uio_name,
+    uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& axidma_uio_name,
             dma_mode mode, transfer_direction direction, size_t buffer_size);
 
     bool initialize();

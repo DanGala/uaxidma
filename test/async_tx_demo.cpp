@@ -10,7 +10,7 @@ using dir = uaxidma::transfer_direction;
 
 int main()
 {
-    uaxidma dma { "udmabuf1", 0, 0, "axidma_tx", mode::normal, dir::mem_to_dev, 256UL << 10 };
+    uaxidma dma { "udmabuf1", 0, "axidma_tx", mode::normal, dir::mem_to_dev, 256UL << 10 };
 
     dma.initialize();
 
@@ -28,7 +28,7 @@ int main()
     {
         std::memcpy(buf_ptr->data(), secret, sizeof(secret));
         buf_ptr->set_payload(sizeof(secret));
-        dma.submit_buffer(buf_ptr);
+        dma.submit_buffer(*buf_ptr);
     }
 
     return 0;
