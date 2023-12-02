@@ -41,14 +41,14 @@ public:
     unsigned int get_buffer_count();
     void clean_interrupt();
     acquisition_result poll_interrupt(int timeout);
-    bool transfer_buffer(sg_descriptor *pdesc, size_t len);
-    bool is_buffer_complete(const sg_descriptor *pdesc) const;
-    void clear_complete_flag(sg_descriptor *pdesc);
-    bool is_buffer_in_progress(const sg_descriptor *pdesc) const;
+    bool transfer_buffer(sg_descriptor &desc, size_t len);
+    bool is_buffer_complete(const sg_descriptor &desc) const;
+    void clear_complete_flag(sg_descriptor &desc);
     size_t get_buffer_size();
-    size_t get_buffer_len(const sg_descriptor *pdesc) const;
-    uint8_t *get_virt_buffer_pointer(const sg_descriptor *pdesc);
-    sg_descriptor_chain::sg_desc_iterator get_chain_iterator();
+    size_t get_buffer_len(const sg_descriptor &desc) const;
+    uint8_t *get_virt_buffer_pointer(const sg_descriptor &desc);
+
+    sg_descriptor_chain sg_desc_chain;   //!< Scatter/Gather descriptor chain
 
 private:
 
@@ -156,7 +156,6 @@ private:
     dma_mode mode;                       //!< Operational Mode
     transfer_direction direction;        //!< Channel direction
     size_t buffer_size;                  //!< Scatter/Gather buffer size
-    sg_descriptor_chain sg_desc_chain;   //!< Scatter/Gather descriptor chain
     uint8_t *buffers;                    //!< Scatter/Gather buffers
     volatile memory_map *registers_base; //!< Memory mapped AXI DMA registers
     pollfd fds;                          //!< Used for polling the UIO device interrupt file descriptor

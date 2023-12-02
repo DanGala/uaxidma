@@ -401,21 +401,21 @@ axi_dma::acquisition_result axi_dma::poll_interrupt(int timeout)
 
 /**
  * @brief Starts the AXI DMA transfer of the specified buffer descriptor
- * @param pdesc Pointer to buffer descriptor
+ * @param desc Buffer descriptor
  * @param len Transfer length
  * @return false on errors
  */
-bool axi_dma::transfer_buffer(sg_descriptor *pdesc, size_t len)
+bool axi_dma::transfer_buffer(sg_descriptor &desc, size_t len)
 {
-    controlf_wrapper control{pdesc->control};
+    controlf_wrapper control{desc.control};
     control.set_flags(controlf::sof | controlf::eof);
     control.set_buf_len(len);
 
-    statusf_wrapper status{pdesc->status};
+    statusf_wrapper status{desc.status};
     status.clear_flags(statusf::complete | statusf::dma_errors);
 
     // Update tail descriptor to point to the current buffer descriptor
-    ptrdiff_t desc_offset = sg_descriptor_chain::distance(sg_desc_chain.begin(), sg_descriptor_chain::sg_desc_iterator{pdesc});
+    ptrdiff_t desc_offset = sg_descriptor_chain::distance(sg_desc_chain.begin(), sg_descriptor_chain::sg_desc_iterator{&desc});
     const uintptr_t tail_desc = udmabuf.phys_addr + sizeof(sg_descriptor) * desc_offset;
 
 #if (__WORDSIZE == 64)
@@ -434,12 +434,12 @@ bool axi_dma::transfer_buffer(sg_descriptor *pdesc, size_t len)
 
 /**
  * @brief Checks if the buffer has been completed
- * @param pdesc Pointer to buffer descriptor
+ * @param desc Buffer descriptor
  * @return true for completed transfers, false otherwise
  */
-bool axi_dma::is_buffer_complete(const sg_descriptor *pdesc) const
+bool axi_dma::is_buffer_complete(const sg_descriptor &desc) const
 {
-    cstatusf_wrapper status{pdesc->status};
+    cstatusf_wrapper status{desc.status};
     bool complete = status.check_flags(statusf::complete);
     if (complete)
     {
@@ -454,47 +454,15 @@ bool axi_dma::is_buffer_complete(const sg_descriptor *pdesc) const
 
 /**
  * @brief Reset the buffer complete bit in the Scatter Gather descriptor's status register
- * @param pdesc Pointer to buffer descriptor
+ * @param desc Buffer descriptor
  */
-void axi_dma::clear_complete_flag(sg_descriptor *pdesc)
+void axi_dma::clear_complete_flag(sg_descriptor &desc)
 {
-    statusf_wrapper status{pdesc->status};
+    statusf_wrapper status{desc.status};
     status.clear_flags(statusf::complete);
 #ifdef __ARM_ARCH
     asm volatile("dmb st");
 #endif
-}
-
-/**
- * @brief Checks if the AXI DMA is currently working on a buffer
- * @param pdesc Pointer to buffer descriptor
- * @return true for buffers in progress, false otherwise
- */
-bool axi_dma::is_buffer_in_progress(const sg_descriptor *pdesc) const
-{
-    volatile sg_registers& registers = (direction == transfer_direction::mm2s)
-                                        ? registers_base->mm2s : registers_base->s2mm;
-
-    // It is safe to assume that we won't have 4GiB worth of descriptors, so the 32 LSBs
-    // uniquely identify the descriptor in use
-    ptrdiff_t desc_offset = sg_descriptor_chain::distance(sg_desc_chain.const_begin(), sg_descriptor_chain::sg_desc_const_iterator{pdesc});
-    const uint32_t buffer_desc_addr = lower_32_bits(udmabuf.phys_addr + sizeof(sg_descriptor) * desc_offset);
-
-    bool in_progress = (buffer_desc_addr == registers.current_desc_low);
-    if (!in_progress)
-    {
-        // Avoid speculatively doing any work before the current descriptor is actually read
-        // Note that for this function, acquire semantics apply when the buffer is not being worked on anymore
-#ifdef __ARM_ARCH
-        asm volatile("dmb sy");
-#endif
-    }
-    return in_progress;
-}
-
-sg_descriptor_chain::sg_desc_iterator axi_dma::get_chain_iterator()
-{
-    return sg_desc_chain.begin();
 }
 
 /**
@@ -508,12 +476,12 @@ size_t axi_dma::get_buffer_size()
 
 /**
  * @brief Get the amount of data transferred by the buffer described by a struct sg_descriptor
- * @param pdesc Pointer to buffer descriptor
+ * @param desc Buffer descriptor
  * @return length in bytes
  */
-size_t axi_dma::get_buffer_len(const sg_descriptor *pdesc) const
+size_t axi_dma::get_buffer_len(const sg_descriptor &desc) const
 {
-    cstatusf_wrapper status{pdesc->status};
+    cstatusf_wrapper status{desc.status};
     const size_t len = status.get_xfer_bytes();
     // Avoid speculatively doing any work before the status is actually read
 #ifdef __ARM_ARCH
@@ -524,10 +492,10 @@ size_t axi_dma::get_buffer_len(const sg_descriptor *pdesc) const
 
 /**
  * @brief Get a pointer to the start of a buffer described by a struct sg_descriptor in virtual memory
- * @param pdesc Pointer to buffer descriptor
+ * @param desc Buffer descriptor
  * @return a pointer to virtual memory
  */
-uint8_t *axi_dma::get_virt_buffer_pointer(const sg_descriptor *pdesc)
+uint8_t *axi_dma::get_virt_buffer_pointer(const sg_descriptor &desc)
 {
-    return buffers + (sg_descriptor_chain::distance(sg_desc_chain.const_begin(), sg_descriptor_chain::sg_desc_const_iterator{pdesc})) * buffer_size;
+    return buffers + (sg_descriptor_chain::distance(sg_desc_chain.const_begin(), sg_descriptor_chain::sg_desc_const_iterator{&desc})) * buffer_size;
 }

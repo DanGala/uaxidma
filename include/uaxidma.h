@@ -1,16 +1,18 @@
 #ifndef _UAXIDMA_H
 #define _UAXIDMA_H
 
-#include <cstdint>
-#include <vector>
-
 #include "axi_dma.h"
 #include "udmabuf.h"
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 class dma_buffer
 {
 friend class uaxidma;
 public:
+    dma_buffer(uint8_t *data, size_t max_len, sg_descriptor& desc)
+        : data_(data), length_(0), capacity_(max_len), descriptor_(desc) {}
     /**
      * @brief Returns the pointer to the beginning of data
      * @return nullptr on errors
@@ -31,7 +33,45 @@ private:
     uint8_t *data_;
     size_t length_;
     size_t capacity_;
-    sg_descriptor *pdescriptor_;
+    sg_descriptor &descriptor_;
+};
+
+class dma_buffer_list
+{
+public:
+    /**
+     * @brief Construct an empty list of dma_buffer pointers
+     */
+    dma_buffer_list() = default;
+    /**
+     * @brief Enables reference counting to protect against "forgot-to-release" types of errors
+     */
+    void limit_active_references();
+    /**
+     * @brief Inserts a new element at the end of the list
+     */
+    void add(const std::shared_ptr<dma_buffer>& ptr);
+    /**
+     * @brief Returns true if the number of available buffers is zero, false otherwise
+     */
+    bool empty() const;
+    /**
+     * @brief Provides a read-only view of the next available buffer from the list
+     */
+    const std::shared_ptr<dma_buffer> &peek_next() const;
+    /**
+     * @brief Obtains the next available buffer. The buffer returned won't be available again until released.
+     */
+    std::shared_ptr<dma_buffer> acquire();
+    /**
+     * @brief Releases a buffer, making it available for future use
+     */
+    void release(std::shared_ptr<dma_buffer>& ptr);
+private:
+    std::vector<std::shared_ptr<dma_buffer>> buffers_;
+    std::vector<std::shared_ptr<dma_buffer>>::iterator next_;
+    std::size_t available_;
+    bool limit_refs_;
 };
 
 class uaxidma
@@ -91,7 +131,7 @@ public:
     bool initialize();
 
     /**
-     * @brief Obtains a free buffer
+     * @brief Acquires the next buffer from the list
      * * To make a mem_to_dev transfer, the user must first call this function, then write the
      * contents into the buffer and set the data length, and finally call submit_buffer().
      *
@@ -107,22 +147,20 @@ public:
      * @return Pair of acquisition_result object representing the success of the operation and pointer to the buffer,
      *         nullptr on error
      */
-    std::pair<acquisition_result, dma_buffer*> get_buffer(int timeout);
+    std::pair<acquisition_result, std::shared_ptr<dma_buffer>> get_buffer(int timeout);
 
     /**
-     * @brief Submits a buffer.
+     * @brief Submits a buffer for transmission to the device end-point
      * @note To be used only when direction has been set to mem_to_dev
      * @return true on success, false on error
      */
-    bool submit_buffer(const dma_buffer *buf);
+    bool submit_buffer(std::shared_ptr<dma_buffer> &ptr);
 
 private:
     axi_dma axidma;
     dma_mode mode;
     transfer_direction direction;
-    std::vector<dma_buffer> buffers;
-    std::vector<dma_buffer>::iterator next_buffer;
-    unsigned int free_buffers;
+    dma_buffer_list buffers;
 };
 
 #endif // #ifndef _DMA_H

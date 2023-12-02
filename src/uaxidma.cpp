@@ -26,6 +26,41 @@ bool dma_buffer::set_payload(size_t len)
     return false;
 }
 
+void dma_buffer_list::limit_active_references()
+{
+    limit_refs_ = true;
+}
+
+void dma_buffer_list::add(const std::shared_ptr<dma_buffer>& ptr)
+{
+    buffers_.push_back(ptr);
+    if (!available_++) next_ = buffers_.begin();
+}
+
+bool dma_buffer_list::empty() const
+{
+    return !available_;
+}
+
+const std::shared_ptr<dma_buffer> &dma_buffer_list::peek_next() const
+{
+    return *next_;
+}
+
+std::shared_ptr<dma_buffer> dma_buffer_list::acquire()
+{
+    if (limit_refs_) available_--;
+    auto ptr = *next_;
+    if (++next_ == buffers_.end()) next_ = buffers_.begin();
+    return ptr;
+}
+
+void dma_buffer_list::release(std::shared_ptr<dma_buffer>& ptr)
+{
+    (void)ptr;
+    if (limit_refs_) available_++;
+}
+
 uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset,
                  const std::string& axidma_uio_name, dma_mode mode, transfer_direction direction, size_t buffer_size)
 
@@ -34,6 +69,10 @@ uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, size_t ud
       mode(mode),
       direction(direction)
 {
+    if (mode != dma_mode::cyclic)
+    {
+        buffers.limit_active_references();
+    }
 }
 
 bool uaxidma::initialize()
@@ -43,26 +82,21 @@ bool uaxidma::initialize()
         return false;
     }
 
-    buffers.resize(axidma.get_buffer_count());
-
-    auto buf_iter = axidma.get_chain_iterator();
-    for (auto& buf : buffers)
+    for (auto& desc : axidma.sg_desc_chain)
     {
-        buf.capacity_ = axidma.get_buffer_size();
-        buf.pdescriptor_ = &(*buf_iter);
-        buf.data_ = axidma.get_virt_buffer_pointer(buf.pdescriptor_);
-        buf_iter++;
+        buffers.add(std::make_shared<dma_buffer>(
+            axidma.get_virt_buffer_pointer(desc),
+            axidma.get_buffer_size(),
+            desc
+        ));
     }
-
-    next_buffer = buffers.begin();
-    free_buffers = axidma.get_buffer_count();
 
     return true;
 }
 
-std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int timeout)
+std::pair<uaxidma::acquisition_result, std::shared_ptr<dma_buffer>> uaxidma::get_buffer(int timeout)
 {
-    if (!free_buffers)
+    if (buffers.empty())
     {
         // Cannot get any more buffers without calling submit_buffer()
         errno = EAGAIN;
@@ -77,7 +111,7 @@ std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int time
        and waiting for an interrupt. */
     axidma.clean_interrupt();
 
-    if (!axidma.is_buffer_complete(next_buffer->pdescriptor_))
+    if (!axidma.is_buffer_complete(buffers.peek_next()->descriptor_))
     {
         auto poll_ret = axidma.poll_interrupt(timeout);
         if (poll_ret != axi_dma::acquisition_result::success)
@@ -86,40 +120,27 @@ std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int time
         }
     }
 
-    dma_buffer& acquired = *next_buffer;
+    std::shared_ptr<dma_buffer> acquired = buffers.acquire();
 
     // Prepare buffer to check for completion again next time
-    axidma.clear_complete_flag(acquired.pdescriptor_);
+    axidma.clear_complete_flag(acquired->descriptor_);
 
-    // Setup buffer with transfer details from DMA based on the buffer id
     if (direction == transfer_direction::dev_to_mem)
     {
-        acquired.set_payload(axidma.get_buffer_len(acquired.pdescriptor_));
-    }
-    else
-    {
-        acquired.set_payload(0);
+        acquired->set_payload(axidma.get_buffer_len(acquired->descriptor_));
     }
 
-    // loop around container
-    if (++next_buffer == buffers.end()) next_buffer = buffers.begin(); 
-    if (direction == transfer_direction::mem_to_dev)
-    {
-        free_buffers--;
-    }
-
-    return {acquisition_result::success, &acquired};
+    return {acquisition_result::success, acquired};
 }
 
-bool uaxidma::submit_buffer(const dma_buffer *buf)
+bool uaxidma::submit_buffer(std::shared_ptr<dma_buffer> &ptr)
 {
-    if (axidma.transfer_buffer(buf->pdescriptor_, buf->length_))
+    if (axidma.transfer_buffer(ptr->descriptor_, ptr->length_))
     {
         return false;
     }
 
-    // Update buffer pool stats
-    free_buffers++;
+    buffers.release(ptr);
 
     return true;
 }
