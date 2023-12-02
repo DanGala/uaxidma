@@ -31,9 +31,14 @@ dma_buffer_list::dma_buffer_list(bool ordered_acquire_release)
 {
 }
 
-void dma_buffer_list::add(const std::shared_ptr<dma_buffer>& ptr)
+void dma_buffer_list::initialize(size_t count)
 {
-    buffers_.push_back(ptr);
+    buffers_.reserve(count);
+}
+
+void dma_buffer_list::add(const dma_buffer& buf)
+{
+    buffers_.push_back(buf);
     if (!available_++) next_ = buffers_.begin();
 }
 
@@ -42,26 +47,26 @@ bool dma_buffer_list::empty() const
     return (limit_refs_ && !available_);
 }
 
-const std::shared_ptr<dma_buffer> &dma_buffer_list::peek_next() const
+const dma_buffer &dma_buffer_list::peek_next() const
 {
     return *next_;
 }
 
-std::shared_ptr<dma_buffer> dma_buffer_list::acquire()
+dma_buffer& dma_buffer_list::acquire()
 {
     if (limit_refs_) available_--;
-    auto ptr = *next_;
+    dma_buffer &buf = *next_;
     if (++next_ == buffers_.end()) next_ = buffers_.begin();
-    return ptr;
+    return buf;
 }
 
-void dma_buffer_list::release(std::shared_ptr<dma_buffer>& ptr)
+void dma_buffer_list::release(dma_buffer& ptr)
 {
     (void)ptr;
     if (limit_refs_) available_++;
 }
 
-uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& axidma_uio_name,
+uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& axidma_uio_name, 
                  dma_mode mode, transfer_direction direction, size_t buffer_size)
 
     : axidma{udmabuf_name, udmabuf_size, axidma_uio_name, static_cast<axi_dma::dma_mode>(mode),
@@ -79,36 +84,27 @@ bool uaxidma::initialize()
         return false;
     }
 
+    buffers.initialize(axidma.sg_desc_chain.length());
+
     for (auto& desc : axidma.sg_desc_chain)
     {
-        buffers.add(std::make_shared<dma_buffer>(
-            axidma.get_virt_buffer_pointer(desc),
-            axidma.get_buffer_size(),
-            desc
-        ));
+        buffers.add({axidma.get_virt_buffer_pointer(desc), axidma.get_buffer_size(), desc});
     }
 
     return true;
 }
 
-std::pair<uaxidma::acquisition_result, std::shared_ptr<dma_buffer>> uaxidma::get_buffer(int timeout)
+std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int timeout)
 {
     if (buffers.empty())
     {
-        // Cannot get any more buffers without calling submit_buffer()
         errno = EAGAIN;
         return {acquisition_result::error, nullptr};
     }
 
-    /* In cyclic mode, any number of buffers may have been completed in between calls.
-       If a buffer cannot be returned immediately (is in progress), wait for the
-       next interrupt (notification of buffer completion).
-       Stale interrupts must be cleared BEFORE checking for immediate availability,
-       in order not to mask events happening in between checking for availability
-       and waiting for an interrupt. */
     axidma.clean_interrupt();
 
-    if (!axidma.is_buffer_complete(buffers.peek_next()->descriptor_))
+    if (!axidma.is_buffer_complete(buffers.peek_next().descriptor_))
     {
         auto poll_ret = axidma.poll_interrupt(timeout);
         if (poll_ret != axi_dma::acquisition_result::success)
@@ -117,27 +113,27 @@ std::pair<uaxidma::acquisition_result, std::shared_ptr<dma_buffer>> uaxidma::get
         }
     }
 
-    std::shared_ptr<dma_buffer> acquired = buffers.acquire();
+    dma_buffer& acquired = buffers.acquire();
 
     // Prepare buffer to check for completion again next time
-    axidma.clear_complete_flag(acquired->descriptor_);
+    axidma.clear_complete_flag(acquired.descriptor_);
 
     if (direction == transfer_direction::dev_to_mem)
     {
-        acquired->set_payload(axidma.get_buffer_len(acquired->descriptor_));
+        acquired.set_payload(axidma.get_buffer_len(acquired.descriptor_));
     }
 
-    return {acquisition_result::success, acquired};
+    return {acquisition_result::success, &acquired};
 }
 
-bool uaxidma::submit_buffer(std::shared_ptr<dma_buffer> &ptr)
+bool uaxidma::submit_buffer(dma_buffer &buf)
 {
-    if (axidma.transfer_buffer(ptr->descriptor_, ptr->length_))
+    if (axidma.transfer_buffer(buf.descriptor_, buf.length_))
     {
         return false;
     }
 
-    buffers.release(ptr);
+    buffers.release(buf);
 
     return true;
 }

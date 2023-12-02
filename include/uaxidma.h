@@ -48,9 +48,13 @@ public:
      */
     dma_buffer_list(bool ordered_acquire_release);
     /**
+     * @brief Sets the maximum number of buffers in the list
+     */
+    void initialize(size_t capacity);
+    /**
      * @brief Inserts a new element at the end of the list
      */
-    void add(const std::shared_ptr<dma_buffer>& ptr);
+    void add(const dma_buffer& ptr);
     /**
      * @brief Returns true if the number of available buffers is zero, false otherwise
      */
@@ -58,18 +62,18 @@ public:
     /**
      * @brief Provides a read-only view of the next available buffer from the list
      */
-    const std::shared_ptr<dma_buffer> &peek_next() const;
+    const dma_buffer &peek_next() const;
     /**
      * @brief Obtains the next available buffer. The buffer returned won't be available again until released.
      */
-    std::shared_ptr<dma_buffer> acquire();
+    dma_buffer& acquire();
     /**
      * @brief Releases a buffer, making it available for future use
      */
-    void release(std::shared_ptr<dma_buffer>& ptr);
+    void release(dma_buffer& ptr);
 private:
-    std::vector<std::shared_ptr<dma_buffer>> buffers_;
-    std::vector<std::shared_ptr<dma_buffer>>::iterator next_;
+    std::vector<dma_buffer> buffers_;
+    std::vector<dma_buffer>::iterator next_;
     std::size_t available_;
     bool limit_refs_;
 };
@@ -142,14 +146,14 @@ public:
      * @return Pair of acquisition_result object representing the success of the operation and pointer to the buffer,
      *         nullptr on error
      */
-    std::pair<acquisition_result, std::shared_ptr<dma_buffer>> get_buffer(int timeout);
+    std::pair<acquisition_result, dma_buffer*> get_buffer(int timeout);
 
     /**
      * @brief Submits a buffer for transmission to the device end-point
      * @note To be used only when direction has been set to mem_to_dev
      * @return true on success, false on error
      */
-    bool submit_buffer(std::shared_ptr<dma_buffer> &ptr);
+    bool submit_buffer(dma_buffer &buf);
 
 private:
     axi_dma axidma;
