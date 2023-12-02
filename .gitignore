@@ -33,5 +33,4 @@
 
 # IDE
 .vscode
-meson*
 *.ini
