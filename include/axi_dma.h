@@ -41,14 +41,15 @@ public:
     unsigned int get_buffer_count();
     void clean_interrupt();
     acquisition_result poll_interrupt(int timeout);
-    bool transfer_buffer(unsigned int id, size_t len);
-    bool is_buffer_complete(unsigned int id);
-    void clear_complete_flag(unsigned int id);
-    bool is_buffer_in_progress(unsigned int id);
+    bool transfer_buffer(sg_descriptor *pdesc, size_t len);
+    bool is_buffer_complete(const sg_descriptor *pdesc) const;
+    void clear_complete_flag(sg_descriptor *pdesc);
+    bool is_buffer_in_progress(const sg_descriptor *pdesc) const;
     size_t get_buffer_size();
-    size_t get_buffer_len(unsigned int id);
-    uint8_t *get_virt_buffer_pointer(unsigned int id);
-   
+    size_t get_buffer_len(const sg_descriptor *pdesc) const;
+    uint8_t *get_virt_buffer_pointer(const sg_descriptor *pdesc);
+    sg_descriptor_chain::sg_desc_iterator get_chain_iterator();
+
 private:
 
     /**

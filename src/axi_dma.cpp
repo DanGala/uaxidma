@@ -14,7 +14,8 @@
 #include <unistd.h>
 
 static inline constexpr uint32_t lower_32_bits(uintmax_t x) { return x; }
-static inline constexpr uint32_t upper_32_bits(uintmax_t x) { return (x >> 32U); }
+static inline constexpr uint32_t upper_32_bits(uintmax_t x) { return (x >> 32); }
+static inline constexpr uintmax_t real_address(uintmax_t upper, uintmax_t lower) { return ((upper << 32) | lower); }
 
 /**
  * @brief Mask AXI DMA interrupt file descriptor
@@ -400,21 +401,22 @@ axi_dma::acquisition_result axi_dma::poll_interrupt(int timeout)
 
 /**
  * @brief Starts the AXI DMA transfer of the specified buffer descriptor
- * @param id Buffer descriptor offset in the descriptor chain
+ * @param pdesc Pointer to buffer descriptor
  * @param len Transfer length
  * @return false on errors
  */
-bool axi_dma::transfer_buffer(unsigned int id, size_t len)
+bool axi_dma::transfer_buffer(sg_descriptor *pdesc, size_t len)
 {
-    controlf_wrapper control{sg_desc_chain[id].control};
+    controlf_wrapper control{pdesc->control};
     control.set_flags(controlf::sof | controlf::eof);
     control.set_buf_len(len);
 
-    statusf_wrapper status{sg_desc_chain[id].status};
+    statusf_wrapper status{pdesc->status};
     status.clear_flags(statusf::complete | statusf::dma_errors);
 
     // Update tail descriptor to point to the current buffer descriptor
-    const uintptr_t tail_desc = udmabuf.phys_addr + sizeof(sg_descriptor) * id;
+    ptrdiff_t desc_offset = sg_descriptor_chain::distance(sg_desc_chain.begin(), sg_descriptor_chain::sg_desc_iterator{pdesc});
+    const uintptr_t tail_desc = udmabuf.phys_addr + sizeof(sg_descriptor) * desc_offset;
 
 #if (__WORDSIZE == 64)
     registers_base->mm2s.tail_desc_high = upper_32_bits(tail_desc);
@@ -432,12 +434,12 @@ bool axi_dma::transfer_buffer(unsigned int id, size_t len)
 
 /**
  * @brief Checks if the buffer has been completed
- * @param id Buffer descriptor offset in the descriptor chain
+ * @param pdesc Pointer to buffer descriptor
  * @return true for completed transfers, false otherwise
  */
-bool axi_dma::is_buffer_complete(unsigned int id)
+bool axi_dma::is_buffer_complete(const sg_descriptor *pdesc) const
 {
-    statusf_wrapper status{sg_desc_chain[id].status};
+    cstatusf_wrapper status{pdesc->status};
     bool complete = status.check_flags(statusf::complete);
     if (complete)
     {
@@ -452,11 +454,11 @@ bool axi_dma::is_buffer_complete(unsigned int id)
 
 /**
  * @brief Reset the buffer complete bit in the Scatter Gather descriptor's status register
- * @param id Buffer descriptor offset in the descriptor chain
+ * @param pdesc Pointer to buffer descriptor
  */
-void axi_dma::clear_complete_flag(unsigned int id)
+void axi_dma::clear_complete_flag(sg_descriptor *pdesc)
 {
-    statusf_wrapper status{sg_desc_chain[id].status};
+    statusf_wrapper status{pdesc->status};
     status.clear_flags(statusf::complete);
 #ifdef __ARM_ARCH
     asm volatile("dmb st");
@@ -465,17 +467,18 @@ void axi_dma::clear_complete_flag(unsigned int id)
 
 /**
  * @brief Checks if the AXI DMA is currently working on a buffer
- * @param id Buffer descriptor offset in the descriptor chain
+ * @param pdesc Pointer to buffer descriptor
  * @return true for buffers in progress, false otherwise
  */
-bool axi_dma::is_buffer_in_progress(unsigned int id)
+bool axi_dma::is_buffer_in_progress(const sg_descriptor *pdesc) const
 {
     volatile sg_registers& registers = (direction == transfer_direction::mm2s)
                                         ? registers_base->mm2s : registers_base->s2mm;
 
     // It is safe to assume that we won't have 4GiB worth of descriptors, so the 32 LSBs
     // uniquely identify the descriptor in use
-    const uint32_t buffer_desc_addr = lower_32_bits(udmabuf.phys_addr + sizeof(sg_descriptor) * id);
+    ptrdiff_t desc_offset = sg_descriptor_chain::distance(sg_desc_chain.const_begin(), sg_descriptor_chain::sg_desc_const_iterator{pdesc});
+    const uint32_t buffer_desc_addr = lower_32_bits(udmabuf.phys_addr + sizeof(sg_descriptor) * desc_offset);
 
     bool in_progress = (buffer_desc_addr == registers.current_desc_low);
     if (!in_progress)
@@ -489,6 +492,11 @@ bool axi_dma::is_buffer_in_progress(unsigned int id)
     return in_progress;
 }
 
+sg_descriptor_chain::sg_desc_iterator axi_dma::get_chain_iterator()
+{
+    return sg_desc_chain.begin();
+}
+
 /**
  * @brief Get the maximum amount of data that can be stored in this buffer
  * @return size in bytes
@@ -500,12 +508,12 @@ size_t axi_dma::get_buffer_size()
 
 /**
  * @brief Get the amount of data transferred by the buffer described by a struct sg_descriptor
- * @param id Buffer descriptor offset in the descriptor chain
+ * @param pdesc Pointer to buffer descriptor
  * @return length in bytes
  */
-size_t axi_dma::get_buffer_len(unsigned int id)
+size_t axi_dma::get_buffer_len(const sg_descriptor *pdesc) const
 {
-    statusf_wrapper status{sg_desc_chain[id].status};
+    cstatusf_wrapper status{pdesc->status};
     const size_t len = status.get_xfer_bytes();
     // Avoid speculatively doing any work before the status is actually read
 #ifdef __ARM_ARCH
@@ -516,10 +524,10 @@ size_t axi_dma::get_buffer_len(unsigned int id)
 
 /**
  * @brief Get a pointer to the start of a buffer described by a struct sg_descriptor in virtual memory
- * @param id Buffer descriptor offset in the descriptor chain
+ * @param pdesc Pointer to buffer descriptor
  * @return a pointer to virtual memory
  */
-uint8_t *axi_dma::get_virt_buffer_pointer(unsigned int id)
+uint8_t *axi_dma::get_virt_buffer_pointer(const sg_descriptor *pdesc)
 {
-    return buffers + id * buffer_size;
+    return buffers + (sg_descriptor_chain::distance(sg_desc_chain.const_begin(), sg_descriptor_chain::sg_desc_const_iterator{pdesc})) * buffer_size;
 }

@@ -28,10 +28,10 @@ public:
      */
     bool set_payload(size_t len);
 private:
-    unsigned int id_;
     uint8_t *data_;
     size_t length_;
     size_t capacity_;
+    sg_descriptor *pdescriptor_;
 };
 
 class uaxidma
@@ -121,7 +121,7 @@ private:
     dma_mode mode;
     transfer_direction direction;
     std::vector<dma_buffer> buffers;
-    unsigned int next_buffer_id;
+    std::vector<dma_buffer>::iterator next_buffer;
     unsigned int free_buffers;
 };
 

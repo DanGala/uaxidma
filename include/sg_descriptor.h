@@ -81,17 +81,50 @@ public:
         friend sg_desc_iterator operator+ (int lhs, sg_desc_iterator rhs);
     };
 
+    class sg_desc_const_iterator
+    {
+        const sg_descriptor* cp_;
+    public:
+        sg_desc_const_iterator(const sg_descriptor *ptr);
+        sg_desc_const_iterator(const sg_desc_const_iterator& it);
+        const sg_descriptor* operator-> () const;
+        const sg_descriptor& operator* () const;
+        const sg_descriptor& operator [] (int n) const;
+        sg_desc_const_iterator& operator++ ();
+        sg_desc_const_iterator operator++ (int);
+        sg_desc_const_iterator& operator-- ();
+        sg_desc_const_iterator operator-- (int);
+        sg_desc_const_iterator& operator+= (int n);
+        sg_desc_const_iterator& operator-= (int n);
+        bool operator== (const sg_desc_const_iterator& other);
+        bool operator!= (const sg_desc_const_iterator& other);
+        bool operator== (const sg_desc_const_iterator& other) const;
+        bool operator!= (const sg_desc_const_iterator& other) const;
+
+        friend std::ptrdiff_t operator- (sg_desc_const_iterator lhs, sg_desc_const_iterator rhs);
+        friend sg_desc_const_iterator operator+ (sg_desc_const_iterator lhs, int rhs);
+        friend sg_desc_const_iterator operator- (sg_desc_const_iterator lhs, int rhs);
+        friend sg_desc_const_iterator operator+ (int lhs, sg_desc_const_iterator rhs);
+    };
+
     sg_descriptor_chain() = default;
     sg_descriptor_chain(sg_descriptor *ptr, std::size_t sz);
     sg_descriptor& operator[](std::size_t idx);
     const sg_descriptor& operator[](std::size_t idx) const;
     std::size_t size() const;
     sg_desc_iterator begin();
+    sg_desc_const_iterator const_begin() const;
     const sg_desc_iterator begin() const;
     sg_desc_iterator end();
+    sg_desc_const_iterator const_end() const;
     const sg_desc_iterator end() const;
     sg_desc_iterator next(sg_desc_iterator& it);
+    sg_desc_const_iterator next(sg_desc_const_iterator& it);
     const sg_desc_iterator next(const sg_desc_iterator& it) const;
+    const sg_desc_const_iterator next(const sg_desc_const_iterator& it) const;
+
+    static std::size_t distance(const sg_desc_iterator& first, const sg_desc_iterator& last);
+    static std::size_t distance(const sg_desc_const_iterator& first, const sg_desc_const_iterator& last);
 
 private:
     sg_descriptor* head_;
@@ -126,12 +159,30 @@ struct statusf_wrapper : public flags_wrapper<statusf>
 };
 
 /**
+ * @brief Thin wrapper around a const statusf object to provide field setters and getters
+ */
+struct cstatusf_wrapper : public cflags_wrapper<statusf>
+{
+    cstatusf_wrapper(const statusf& f) : cflags_wrapper<statusf>{f} {}
+    size_t get_xfer_bytes() const { return static_cast<size_t>(cflags & statusf::xfer_bytes); }
+};
+
+/**
  * @brief Thin wrapper around a volatile statusf object to provide field setters and getters
  */
 struct vstatusf_wrapper : public vflags_wrapper<statusf>
 {
     vstatusf_wrapper(volatile statusf& f) : vflags_wrapper<statusf>{f} {}
     size_t get_xfer_bytes() const volatile { return static_cast<size_t>(vflags & statusf::xfer_bytes); }
+};
+
+/**
+ * @brief Thin wrapper around a const volatile statusf object to provide field setters and getters
+ */
+struct cvstatusf_wrapper : public cvflags_wrapper<statusf>
+{
+    cvstatusf_wrapper(const volatile statusf& f) : cvflags_wrapper<statusf>{f} {}
+    size_t get_xfer_bytes() const volatile { return static_cast<size_t>(cvflags & statusf::xfer_bytes); }
 };
 
 #endif

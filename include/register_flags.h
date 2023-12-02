@@ -59,6 +59,17 @@ struct flags_wrapper
 };
 
 /**
+ * @brief Template thin wrapper around a bitfield to provide field setters and getters
+ */
+template <typename T>
+struct cflags_wrapper
+{
+    cflags_wrapper(const T& f) : cflags(f) {};
+    bool check_flags(T f) const { return ((cflags & f) == f); }
+    const T& cflags;
+};
+
+/**
  * @brief Template thin wrapper around a volatile bitfield to provide field setters and getters
  */
 template <typename T>
@@ -69,6 +80,17 @@ struct vflags_wrapper
     bool check_flags(T f) volatile { return ((vflags & f) == f); }
     void clear_flags(T f) volatile { vflags &= ~f; }
     volatile T& vflags;
+};
+
+/**
+ * @brief Template thin wrapper around a volatile bitfield to provide field setters and getters
+ */
+template <typename T>
+struct cvflags_wrapper
+{
+    cvflags_wrapper(const volatile T& f) : cvflags(f) {};
+    bool check_flags(T f) const volatile { return ((cvflags & f) == f); }
+    const volatile T& cvflags;
 };
 
 #endif
