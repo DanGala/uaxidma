@@ -1,6 +1,10 @@
 # uaxidma (User space Scatter/Gather AXI DMA library)
 A userspace library based on UIO and u-dma-buf, aimed to manage interrupt-driven Scatter/Gather data transfers between PS and PL.
 
+![main](https://github.com/DanGala/uaxidma/actions/workflows/cicd.yml/badge.svg?branch=main)
+
+![devel](https://github.com/DanGala/uaxidma/actions/workflows/cicd.yml/badge.svg?branch=devel)
+
 # Dependencies
 - [User space I/O](https://www.kernel.org/doc/html/v4.12/driver-api/uio-howto.html)
 - [User space mappable DMA Buffer](https://github.com/ikwzm/udmabuf)
