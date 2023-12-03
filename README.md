@@ -1,6 +1,10 @@
 # uaxidma (User space Scatter/Gather AXI DMA library)
 A userspace library based on UIO and u-dma-buf, aimed to manage interrupt-driven Scatter/Gather data transfers between PS and PL.
 
+![main](https://github.com/DanGala/uaxidma/actions/workflows/cicd.yml/badge.svg?branch=main)
+
+![devel](https://github.com/DanGala/uaxidma/actions/workflows/cicd.yml/badge.svg?branch=devel)
+
 # Dependencies
 - [User space I/O](https://www.kernel.org/doc/html/v4.12/driver-api/uio-howto.html)
 - [User space mappable DMA Buffer](https://github.com/ikwzm/udmabuf)
@@ -20,7 +24,7 @@ udmabuf0 {
 
 udmabuf1 {
     compatible = "ikwzm,u-dma-buf";
-    device-name = "udmabuf0";
+    device-name = "udmabuf1";
     minor-number = <0>;
     size = <0x00100000>;
     sync-mode = <3>;
@@ -56,15 +60,18 @@ using acq_result = uaxidma::acquisition_result;
 using mode = uaxidma::dma_mode;
 using dir = uaxidma::transfer_direction;
 
+static constexpr int timeout_1ms = 1000;
+static constexpr size_t _256MiB = 256UL << 10;
+
 int main()
 {
-    uaxidma dma { "udmabuf0", 0, 0, "axidma_rx", mode::cyclic, dir::dev_to_mem, 256UL << 10 };
+    uaxidma dma { "udmabuf0", 0, "axidma_rx", mode::cyclic, dir::dev_to_mem, _256MiB };
 
     dma.initialize();
 
     while (true)
     {
-        const auto [res, buf_ptr] = dma.get_buffer(1000);
+        const auto [res, buf_ptr] = dma.get_buffer(timeout_1ms);
 
         if (res == acq_result::error)
         {
@@ -82,6 +89,7 @@ int main()
             {
                 std::cout << i << ": " << data[i] << std::endl;
             }
+            dma.mark_reusable(*buf_ptr);
         }
     }
 
@@ -96,6 +104,8 @@ int main()
 #include <cstring>
 
 static constexpr uint8_t secret[] = {4, 8, 15, 16, 23, 42};
+static constexpr int timeout_1ms = 1000;
+static constexpr size_t _256MiB = 256UL << 10;
 
 using acq_result = uaxidma::acquisition_result;
 using mode = uaxidma::dma_mode;
@@ -103,11 +113,11 @@ using dir = uaxidma::transfer_direction;
 
 int main()
 {
-    uaxidma dma { "udmabuf1", 0, 0, "axidma_tx", mode::normal, dir::mem_to_dev, 256UL << 10 };
+    uaxidma dma { "udmabuf1", 0, "axidma_tx", mode::normal, dir::mem_to_dev, _256MiB };
 
     dma.initialize();
 
-    const auto [res, buf_ptr] = dma.get_buffer(1000);
+    const auto [res, buf_ptr] = dma.get_buffer(timeout_1ms);
 
     if (res == acq_result::error)
     {
@@ -121,7 +131,7 @@ int main()
     {
         std::memcpy(buf_ptr->data(), secret, sizeof(secret));
         buf_ptr->set_payload(sizeof(secret));
-        dma.submit_buffer(buf_ptr);
+        dma.submit_buffer(*buf_ptr);
     }
 
     return 0;

@@ -5,15 +5,18 @@ using acq_result = uaxidma::acquisition_result;
 using mode = uaxidma::dma_mode;
 using dir = uaxidma::transfer_direction;
 
+static constexpr int timeout_1ms = 1000;
+static constexpr size_t _256MiB = 256UL << 10;
+
 int main()
 {
-    uaxidma dma { "udmabuf0", 0, 0, "axidma_rx", mode::cyclic, dir::dev_to_mem, 256UL << 10 };
+    uaxidma dma { "udmabuf0", 0, "axidma_rx", mode::cyclic, dir::dev_to_mem, _256MiB };
 
     dma.initialize();
 
     while (true)
     {
-        const auto [res, buf_ptr] = dma.get_buffer(1000);
+        const auto [res, buf_ptr] = dma.get_buffer(timeout_1ms);
 
         if (res == acq_result::error)
         {
@@ -31,6 +34,7 @@ int main()
             {
                 std::cout << i << ": " << data[i] << std::endl;
             }
+            dma.mark_reusable(*buf_ptr);
         }
     }
 

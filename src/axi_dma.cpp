@@ -14,7 +14,8 @@
 #include <unistd.h>
 
 static inline constexpr uint32_t lower_32_bits(uintmax_t x) { return x; }
-static inline constexpr uint32_t upper_32_bits(uintmax_t x) { return (x >> 32U); }
+static inline constexpr uint32_t upper_32_bits(uintmax_t x) { return (x >> 32); }
+static inline constexpr uintmax_t real_address(uintmax_t upper, uintmax_t lower) { return ((upper << 32) | lower); }
 
 /**
  * @brief Mask AXI DMA interrupt file descriptor
@@ -23,7 +24,7 @@ static inline constexpr uint32_t upper_32_bits(uintmax_t x) { return (x >> 32U);
 bool axi_dma::mask_interrupt()
 {
     static constexpr int32_t mask = 0;
-    return (write(uio.fd, &mask, sizeof(mask)) != sizeof(mask));
+    return (write(device.fd, &mask, sizeof(mask)) != sizeof(mask));
 }
 
 /**
@@ -33,7 +34,7 @@ bool axi_dma::mask_interrupt()
 bool axi_dma::unmask_interrupt()
 {
     static constexpr int32_t unmask = 1;
-    return (write(uio.fd, &unmask, sizeof(unmask)) != sizeof(unmask));
+    return (write(device.fd, &unmask, sizeof(unmask)) != sizeof(unmask));
 }
 
 /**
@@ -43,9 +44,9 @@ void axi_dma::create_desc_ring(std::size_t buffer_count)
 {
     sg_desc_chain = {reinterpret_cast<sg_descriptor *>(udmabuf.virt_addr), buffer_count};
     
-    const uintptr_t desc_phys_base_addr = udmabuf.phys_addr;
-    uintptr_t next_desc = desc_phys_base_addr + sizeof(sg_descriptor);
-    uintptr_t buf_addr = desc_phys_base_addr + sg_desc_chain.size();
+    const uintptr_t &desc_base_phys_addr = udmabuf.phys_addr; // just an alias for clarity
+    uintptr_t next_desc = desc_base_phys_addr + sizeof(sg_descriptor);
+    uintptr_t buf_addr = desc_base_phys_addr + sg_desc_chain.size();
 
     for (auto& d : sg_desc_chain)
     {
@@ -76,20 +77,20 @@ void axi_dma::create_desc_ring(std::size_t buffer_count)
     // Create a ring by pointing the last descriptor back to the first
     auto& last_desc_ptr = --(sg_desc_chain.end());
 #if (__WORDSIZE == 64)
-    last_desc_ptr->next_desc_msb = upper_32_bits(desc_phys_base_addr);
+    last_desc_ptr->next_desc_msb = upper_32_bits(desc_base_phys_addr);
 #endif // #if (__WORDSIZE == 64)
-    last_desc_ptr->next_desc = lower_32_bits(desc_phys_base_addr);
+    last_desc_ptr->next_desc = lower_32_bits(desc_base_phys_addr);
 }
 
 /**
  * @brief C'tor
  */
-axi_dma::axi_dma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset,
+axi_dma::axi_dma(const std::string& udmabuf_name, size_t udmabuf_size,
                  const std::string& uio_device_name, dma_mode mode, transfer_direction direction,
                  size_t buffer_size)
 
-    : udmabuf(udmabuf_name, udmabuf_size, udmabuf_offset),
-      uio(uio_device_name),
+    : udmabuf{udmabuf_name, udmabuf_size},
+      device{uio_device_name},
       mode(mode),
       direction(direction),
 #ifdef USE_DATA_REALIGNMENT_ENGINE
@@ -113,11 +114,11 @@ bool axi_dma::initialize()
     }
 
     // Initialize poll structure to monitor interrupts
-    fds.fd = uio.fd;
+    fds.fd = device.fd;
     fds.events = POLLIN;
 
     // Map AXI DMA peripheral to virtual address space
-    registers_base = reinterpret_cast<volatile memory_map *>(uio.map());
+    registers_base = reinterpret_cast<volatile memory_map *>(device.map());
     if (!registers_base)
     {
         return false;
@@ -156,7 +157,7 @@ bool axi_dma::initialize()
 axi_dma::~axi_dma()
 {
     reset();
-    uio.unmap();
+    device.unmap();
 }
 
 /**
@@ -178,11 +179,11 @@ bool axi_dma::start_normal()
     // completed Note that non-cyclic operation will be configured: the DMA will stall when all
     // buffer descriptors are complete
     vdmacontrolf_wrapper control{registers.control};
-    control.set_flags(dmacontrolf::ioc_irq_en | dmacontrolf::err_irq_en);
+    control.enable_irqs(dma_irqs::on_complete | dma_irqs::error);
     control.set_irq_threshold(1u);
 
     // Set current descriptor pointer to the first descriptor
-    const uintptr_t first_desc = udmabuf.phys_addr;
+    const uintptr_t &first_desc = udmabuf.phys_addr;
 
 #if (__WORDSIZE == 64)
     registers.current_desc_high, upper_32_bits(first_desc);
@@ -191,7 +192,7 @@ bool axi_dma::start_normal()
     registers.current_desc_low, lower_32_bits(first_desc);
 
     // Start AXI DMA but don't set the tail descriptor yet
-    control.set_flags(dmacontrolf::rs);
+    control.run();
 
     return true;
 }
@@ -212,11 +213,12 @@ bool axi_dma::start_cyclic()
 
     // Prepare control word for starting the cyclic DMA channel and generating one interrupt for each BD completed
     vdmacontrolf_wrapper control{registers.control};
-    control.set_flags(dmacontrolf::cyclic_bd_en | dmacontrolf::ioc_irq_en | dmacontrolf::err_irq_en);
+    control.enable_cyclic_mode();
+    control.enable_irqs(dma_irqs::on_complete | dma_irqs::error);
     control.set_irq_threshold(1u);
 
     // Set current descriptor pointer to the first descriptor
-    const uintptr_t first_desc = udmabuf.phys_addr;
+    const uintptr_t &first_desc = udmabuf.phys_addr;
 
 #if (__WORDSIZE == 64)
     registers.current_desc_high = upper_32_bits(first_desc);
@@ -225,7 +227,7 @@ bool axi_dma::start_cyclic()
     registers.current_desc_low = lower_32_bits(first_desc);
 
     // Start DMA channel
-    control.set_flags(dmacontrolf::rs);
+    control.run();
 
     // Set tail descriptor pointer:
     // According to the programming sequence described in the IP Product Guide, the actual value
@@ -279,7 +281,7 @@ bool axi_dma::stop()
 
     // Reset the RS bit in the control register and wait a bit for the DMA channel to be halted
     vdmacontrolf_wrapper control{registers.control};
-    control.clear_flags(dmacontrolf::rs);
+    control.stop();
 
     unsigned int spin_count = 128U;
     vdmastatusf_wrapper status{registers.status};
@@ -306,15 +308,14 @@ bool axi_dma::stop()
  */
 bool axi_dma::reset()
 {
-    // Set the Reset bit in the control register to soft-reset the DMA engine
-    // It doesn't really matter whether the Reset bit is set on S2MM_DMACR or MM2S_DMACR,
+    // Soft-reset the DMA engine
+    // It doesn't really matter whether S2MM or MM2S control register is used,
     // as the whole AXI DMA will be reset.
     vdmacontrolf_wrapper control{registers_base->mm2s.control};
-    control.set_flags(dmacontrolf::reset);
+    control.reset();
 
-    // While the reset is in progress, the Reset bit remains high
     unsigned int spin_count = 128U;
-    while (control.check_flags(dmacontrolf::reset))
+    while (control.in_reset_state())
     {
         if (--spin_count == 0)
         {
@@ -332,14 +333,6 @@ bool axi_dma::reset()
 }
 
 /**
- * @brief Gets the number of buffers available
- */
-unsigned int axi_dma::get_buffer_count()
-{
-    return sg_desc_chain.size() / sizeof(sg_descriptor);
-}
-
-/**
  * @brief Clears AXI DMA's interrupt flags from the DMASR register
  */
 void axi_dma::clean_interrupt()
@@ -348,7 +341,7 @@ void axi_dma::clean_interrupt()
                                         ? registers_base->mm2s : registers_base->s2mm;
 
     vdmastatusf_wrapper status{registers.status};
-    status.set_flags(dmastatusf::ioc_irq | dmastatusf::err_irq);
+    status.clear_irqs(dma_irqs::on_complete | dma_irqs::error);
 
     // Memory barrier to ensure IRQs are cleared before following operations assuming a clean slate
 #ifdef __ARM_ARCH
@@ -383,7 +376,7 @@ axi_dma::acquisition_result axi_dma::poll_interrupt(int timeout)
     {
         // Blocking wait for a DMA interrupt - this should return immediately as we are only polling one fd
         int32_t n_interrupts;
-        if (read(uio.fd, &n_interrupts, sizeof(n_interrupts))
+        if (read(device.fd, &n_interrupts, sizeof(n_interrupts))
             != sizeof(n_interrupts))
         {
             ret = acquisition_result::error;
@@ -400,21 +393,22 @@ axi_dma::acquisition_result axi_dma::poll_interrupt(int timeout)
 
 /**
  * @brief Starts the AXI DMA transfer of the specified buffer descriptor
- * @param id Buffer descriptor offset in the descriptor chain
+ * @param desc Buffer descriptor
  * @param len Transfer length
- * @return false on errors
  */
-bool axi_dma::transfer_buffer(unsigned int id, size_t len)
+void axi_dma::transfer_buffer(sg_descriptor &desc, size_t len)
 {
-    controlf_wrapper control{sg_desc_chain[id].control};
+    controlf_wrapper control{desc.control};
     control.set_flags(controlf::sof | controlf::eof);
     control.set_buf_len(len);
 
-    statusf_wrapper status{sg_desc_chain[id].status};
+    statusf_wrapper status{desc.status};
     status.clear_flags(statusf::complete | statusf::dma_errors);
 
     // Update tail descriptor to point to the current buffer descriptor
-    const uintptr_t tail_desc = udmabuf.phys_addr + sizeof(sg_descriptor) * id;
+    ptrdiff_t desc_offset = sg_desc_chain.offset(sg_descriptor_chain::iterator{&desc});
+    const uintptr_t &desc_base_phys_addr = udmabuf.phys_addr; // just an alias for clarity
+    const uintptr_t tail_desc = desc_base_phys_addr + sizeof(sg_descriptor) * desc_offset;
 
 #if (__WORDSIZE == 64)
     registers_base->mm2s.tail_desc_high = upper_32_bits(tail_desc);
@@ -426,100 +420,23 @@ bool axi_dma::transfer_buffer(unsigned int id, size_t len)
 #endif
 
     registers_base->mm2s.tail_desc_low = lower_32_bits(tail_desc);
-
-    return true;
-}
-
-/**
- * @brief Checks if the buffer has been completed
- * @param id Buffer descriptor offset in the descriptor chain
- * @return true for completed transfers, false otherwise
- */
-bool axi_dma::is_buffer_complete(unsigned int id)
-{
-    statusf_wrapper status{sg_desc_chain[id].status};
-    bool complete = status.check_flags(statusf::complete);
-    if (complete)
-    {
-        // Avoid speculatively doing any work before the status is actually read
-        // Note that for this function, acquire semantics apply when the buffer has been completed
-#ifdef __ARM_ARCH
-        asm volatile("dmb sy");
-#endif
-    }
-    return complete;
-}
-
-/**
- * @brief Reset the buffer complete bit in the Scatter Gather descriptor's status register
- * @param id Buffer descriptor offset in the descriptor chain
- */
-void axi_dma::clear_complete_flag(unsigned int id)
-{
-    statusf_wrapper status{sg_desc_chain[id].status};
-    status.clear_flags(statusf::complete);
-#ifdef __ARM_ARCH
-    asm volatile("dmb st");
-#endif
-}
-
-/**
- * @brief Checks if the AXI DMA is currently working on a buffer
- * @param id Buffer descriptor offset in the descriptor chain
- * @return true for buffers in progress, false otherwise
- */
-bool axi_dma::is_buffer_in_progress(unsigned int id)
-{
-    volatile sg_registers& registers = (direction == transfer_direction::mm2s)
-                                        ? registers_base->mm2s : registers_base->s2mm;
-
-    // It is safe to assume that we won't have 4GiB worth of descriptors, so the 32 LSBs
-    // uniquely identify the descriptor in use
-    const uint32_t buffer_desc_addr = lower_32_bits(udmabuf.phys_addr + sizeof(sg_descriptor) * id);
-
-    bool in_progress = (buffer_desc_addr == registers.current_desc_low);
-    if (!in_progress)
-    {
-        // Avoid speculatively doing any work before the current descriptor is actually read
-        // Note that for this function, acquire semantics apply when the buffer is not being worked on anymore
-#ifdef __ARM_ARCH
-        asm volatile("dmb sy");
-#endif
-    }
-    return in_progress;
 }
 
 /**
  * @brief Get the maximum amount of data that can be stored in this buffer
  * @return size in bytes
  */
-size_t axi_dma::get_buffer_size()
+size_t axi_dma::get_buffer_size() const
 {
     return buffer_size;
 }
 
 /**
- * @brief Get the amount of data transferred by the buffer described by a struct sg_descriptor
- * @param id Buffer descriptor offset in the descriptor chain
- * @return length in bytes
- */
-size_t axi_dma::get_buffer_len(unsigned int id)
-{
-    statusf_wrapper status{sg_desc_chain[id].status};
-    const size_t len = status.get_xfer_bytes();
-    // Avoid speculatively doing any work before the status is actually read
-#ifdef __ARM_ARCH
-    asm volatile("dmb sy");
-#endif
-    return len;
-}
-
-/**
  * @brief Get a pointer to the start of a buffer described by a struct sg_descriptor in virtual memory
- * @param id Buffer descriptor offset in the descriptor chain
+ * @param desc Buffer descriptor
  * @return a pointer to virtual memory
  */
-uint8_t *axi_dma::get_virt_buffer_pointer(unsigned int id)
+uint8_t *axi_dma::get_virt_buffer_pointer(sg_descriptor &desc) const
 {
-    return buffers + id * buffer_size;
+    return buffers + sg_desc_chain.offset(sg_descriptor_chain::iterator{desc}) * buffer_size;
 }

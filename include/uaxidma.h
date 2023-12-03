@@ -1,38 +1,11 @@
 #ifndef _UAXIDMA_H
 #define _UAXIDMA_H
 
-#include <cstdint>
-#include <vector>
-
 #include "axi_dma.h"
 #include "udmabuf.h"
-
-class dma_buffer
-{
-friend class uaxidma;
-public:
-    /**
-     * @brief Returns the pointer to the beginning of data
-     * @return nullptr on errors
-     */
-    uint8_t *data();
-    /**
-     * @brief Returns the number of bytes of data received
-     * @return data length
-     */
-    size_t length();
-    /**
-     * @brief Sets the number of bytes of data to be sent
-     * @param len new data length
-     * @return false if len exceeds the buffer's capacity
-     */
-    bool set_payload(size_t len);
-private:
-    unsigned int id_;
-    uint8_t *data_;
-    size_t length_;
-    size_t capacity_;
-};
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 class uaxidma
 {
@@ -57,6 +30,35 @@ public:
         timeout = static_cast<int>(axi_dma::acquisition_result::timeout)
     };
 
+    class buffer
+    {
+    friend class uaxidma;
+    public:
+        buffer(uint8_t *data, size_t max_len, sg_descriptor& desc)
+            : data_(data), length_(0), capacity_(max_len), desc_handle_{desc} {}
+        /**
+         * @brief Returns the pointer to the beginning of data
+         * @return nullptr on errors
+         */
+        uint8_t *data();
+        /**
+         * @brief Returns the number of bytes of data received
+         * @return data length
+         */
+        size_t length();
+        /**
+         * @brief Sets the number of bytes of data to be sent
+         * @param len new data length
+         * @return false if len exceeds the buffer's capacity
+         */
+        bool set_payload(size_t len);
+    private:
+        uint8_t *data_;
+        size_t length_;
+        size_t capacity_;
+        sg_descriptor_handle desc_handle_;
+    };
+
     /**
      * @brief Creates a DMA channel.
      * @param udmabuf_name of the udmabuf buffer to use.
@@ -68,12 +70,7 @@ public:
      * 
      * A value of 0 indicates all memory reserved to the udabuf buffer will be used.
      * A value greater than 0 indicates that <em>udmabuf_size</em> bytes of the udmabuf buffer will be used,
-     * starting from <em>udmabuf_offset</em> bytes after the udmabuf buffer base address.
-     *
-     * @param udmabuf_offset in bytes with respect to the udmabuf buffer base address.
-     * 
-     * To be used in conjunction with <em>udmabuf_size</em>.
-     * This setting shall be ignored when <em>udmabuf_size</em> is set to 0.
+     * starting from the udmabuf buffer base address.
      * 
      * @param axidma_uio_name of the UIO device associated to the AXI-DMA.
      *
@@ -85,15 +82,17 @@ public:
      * 
      * @param buffer_size size of each buffer in bytes
      */
-    uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset, const std::string& axidma_uio_name,
+    uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& axidma_uio_name,
             dma_mode mode, transfer_direction direction, size_t buffer_size);
 
     bool initialize();
 
     /**
-     * @brief Obtains a free buffer
-     * * To make a mem_to_dev transfer, the user must first call this function, then write the
+     * @brief Acquires the next buffer from the list
+     * In mem_to_dev transfers, the user must first call this function, then write the
      * contents into the buffer and set the data length, and finally call submit_buffer().
+     * In dev_to_mem transfers, the user must first call this function, then process the
+     * data received, and finally call mark_reusable().
      *
      * @note If buffer submission is deferred (get_buffer() is called more than once without 
      * calling submit_buffer()), the user may get up to <em>N</em> buffers - where the value 
@@ -107,22 +106,68 @@ public:
      * @return Pair of acquisition_result object representing the success of the operation and pointer to the buffer,
      *         nullptr on error
      */
-    std::pair<acquisition_result, dma_buffer*> get_buffer(int timeout);
+    std::pair<acquisition_result, buffer*> get_buffer(int timeout);
 
     /**
-     * @brief Submits a buffer.
-     * @note To be used only when direction has been set to mem_to_dev
-     * @return true on success, false on error
+     * @brief Returns buffer ownership to the DMA library
+     * @note To be used only when direction has been set to dev_to_mem
      */
-    bool submit_buffer(const dma_buffer *buf);
+    void mark_reusable(buffer &buf);
+
+    /**
+     * @brief Submits a buffer for transmission to the device end-point
+     * @note To be used only when direction has been set to mem_to_dev
+     */
+    void submit_buffer(buffer &buf);
 
 private:
+
+    class buffer_ring
+    {
+    public:
+        /**
+         * @brief Construct an empty list of buffer pointers
+         */
+        buffer_ring() = default;
+        /**
+         * @brief Construct an empty list of buffer pointers with reference limits enabled
+         */
+        buffer_ring(bool limit_refs);
+        /**
+         * @brief Sets the maximum number of buffers in the list
+         */
+        void initialize(size_t capacity);
+        /**
+         * @brief Inserts a new element at the end of the list
+         */
+        void add(const buffer& buf);
+        /**
+         * @brief Returns true if the number of available buffers is zero, false otherwise
+         */
+        bool empty() const;
+        /**
+         * @brief Provides a read-only view of the next available buffer from the list
+         */
+        const buffer &peek_next() const;
+        /**
+         * @brief Obtains the next available buffer. The buffer returned won't be available again until released.
+         */
+        buffer& acquire();
+        /**
+         * @brief Releases a buffer, making it available for future use
+         */
+        void release(buffer& buf);
+    private:
+        std::vector<buffer> buffers_;
+        std::vector<buffer>::iterator next_;
+        std::size_t available_;
+        bool limit_refs_;
+    };
+
     axi_dma axidma;
     dma_mode mode;
     transfer_direction direction;
-    std::vector<dma_buffer> buffers;
-    unsigned int next_buffer_id;
-    unsigned int free_buffers;
+    buffer_ring buffers;
 };
 
 #endif // #ifndef _DMA_H

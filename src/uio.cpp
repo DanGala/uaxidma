@@ -20,11 +20,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-/**
- * @brief Finds and sets the uio device number by device name
- * @param name Name of the UIO device as in the /sys/class/uio/uioN/name file
- * @return false on errors
- */
 bool uio_device::find_by_name(const std::string &name)
 {
     DIR *dir = opendir("/sys/class/uio");

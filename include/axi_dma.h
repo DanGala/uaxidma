@@ -32,23 +32,27 @@ public:
         timeout = 0
     };
 
-    explicit axi_dma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset, const std::string& uio_device_name,
+    enum class dma_irqs : uint32_t
+    {
+        on_complete = 1u << 12,
+        delay = 1u << 13,
+        error = 1u << 14
+    };
+
+    explicit axi_dma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& uio_device_name,
             dma_mode mode, transfer_direction direction, size_t buffer_size);
     axi_dma() = delete;
     ~axi_dma();
     bool initialize();
     bool start();
-    unsigned int get_buffer_count();
     void clean_interrupt();
     acquisition_result poll_interrupt(int timeout);
-    bool transfer_buffer(unsigned int id, size_t len);
-    bool is_buffer_complete(unsigned int id);
-    void clear_complete_flag(unsigned int id);
-    bool is_buffer_in_progress(unsigned int id);
-    size_t get_buffer_size();
-    size_t get_buffer_len(unsigned int id);
-    uint8_t *get_virt_buffer_pointer(unsigned int id);
-   
+    void transfer_buffer(sg_descriptor &desc, size_t len);
+    size_t get_buffer_size() const;
+    uint8_t *get_virt_buffer_pointer(sg_descriptor &desc) const;
+
+    sg_descriptor_chain sg_desc_chain;   //!< Scatter/Gather descriptor chain
+
 private:
 
     /**
@@ -75,7 +79,13 @@ private:
     struct dmacontrolf_wrapper : public flags_wrapper<dmacontrolf>
     {
         dmacontrolf_wrapper(dmacontrolf& f) : flags_wrapper<dmacontrolf>{f} {}
+        void run() { set_flags(dmacontrolf::rs); }
+        void stop() { clear_flags(dmacontrolf::rs); }
+        void reset() { set_flags(dmacontrolf::reset); }
+        bool in_reset_state() { return check_flags(dmacontrolf::reset); }
+        void enable_irqs(dma_irqs irqs) { set_flags(dmacontrolf::all_irq_en & static_cast<dmacontrolf>(irqs)); }
         void set_irq_threshold(uint32_t thresh) { set_flags(dmacontrolf::irq_thresh & thresh); }
+        void enable_cyclic_mode() { set_flags(dmacontrolf::cyclic_bd_en); }
     };
 
     /**
@@ -84,7 +94,13 @@ private:
     struct vdmacontrolf_wrapper : public vflags_wrapper<dmacontrolf>
     {
         vdmacontrolf_wrapper(volatile dmacontrolf& f) : vflags_wrapper<dmacontrolf>{f} {}
+        void run() { set_flags(dmacontrolf::rs); }
+        void stop() { clear_flags(dmacontrolf::rs); }
+        void reset() { set_flags(dmacontrolf::reset); }
+        bool in_reset_state() { return check_flags(dmacontrolf::reset); }
+        void enable_irqs(dma_irqs irqs) { set_flags(dmacontrolf::all_irq_en & static_cast<dmacontrolf>(irqs)); }
         void set_irq_threshold(uint32_t thresh) volatile { set_flags(dmacontrolf::irq_thresh & thresh); }
+        void enable_cyclic_mode() { set_flags(dmacontrolf::cyclic_bd_en); }
     };
 
     /**
@@ -117,6 +133,7 @@ private:
     struct dmastatusf_wrapper : public flags_wrapper<dmastatusf>
     {
         dmastatusf_wrapper(dmastatusf& f) : flags_wrapper<dmastatusf>{f} {}
+        void clear_irqs(dma_irqs irqs) { set_flags(dmastatusf::all_irqs & static_cast<dmastatusf>(irqs)); }
     };
 
     /**
@@ -125,6 +142,7 @@ private:
     struct vdmastatusf_wrapper : public vflags_wrapper<dmastatusf>
     {
         vdmastatusf_wrapper(volatile dmastatusf& f) : vflags_wrapper<dmastatusf>{f} {}
+        void clear_irqs(dma_irqs irqs) { set_flags(dmastatusf::all_irqs & static_cast<dmastatusf>(irqs)); }
     };
 
     /**
@@ -146,16 +164,15 @@ private:
     struct memory_map
     {
         sg_registers mm2s; //!< MM2S registers
-        uint32_t sg_ctl;          //!< Scatter/Gather User and Cache
+        uint32_t sg_ctl;   //!< Scatter/Gather User and Cache
         sg_registers s2mm; //!< S2MM registers
     };
 
     u_dma_buf udmabuf;                   //!< Associated u-dma-buf buffer
-    uio_device uio;                      //!< AXI DMA UIO device
+    uio_device device;                   //!< AXI DMA UIO device
     dma_mode mode;                       //!< Operational Mode
     transfer_direction direction;        //!< Channel direction
     size_t buffer_size;                  //!< Scatter/Gather buffer size
-    sg_descriptor_chain sg_desc_chain;   //!< Scatter/Gather descriptor chain
     uint8_t *buffers;                    //!< Scatter/Gather buffers
     volatile memory_map *registers_base; //!< Memory mapped AXI DMA registers
     pollfd fds;                          //!< Used for polling the UIO device interrupt file descriptor

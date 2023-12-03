@@ -3,6 +3,8 @@
 #include <cstring>
 
 static constexpr uint8_t secret[] = {4, 8, 15, 16, 23, 42};
+static constexpr int timeout_1ms = 1000;
+static constexpr size_t _256MiB = 256UL << 10;
 
 using acq_result = uaxidma::acquisition_result;
 using mode = uaxidma::dma_mode;
@@ -10,11 +12,11 @@ using dir = uaxidma::transfer_direction;
 
 int main()
 {
-    uaxidma dma { "udmabuf1", 0, 0, "axidma_tx", mode::normal, dir::mem_to_dev, 256UL << 10 };
+    uaxidma dma { "udmabuf1", 0, "axidma_tx", mode::normal, dir::mem_to_dev, _256MiB };
 
     dma.initialize();
 
-    const auto [res, buf_ptr] = dma.get_buffer(1000);
+    const auto [res, buf_ptr] = dma.get_buffer(timeout_1ms);
 
     if (res == acq_result::error)
     {
@@ -28,7 +30,7 @@ int main()
     {
         std::memcpy(buf_ptr->data(), secret, sizeof(secret));
         buf_ptr->set_payload(sizeof(secret));
-        dma.submit_buffer(buf_ptr);
+        dma.submit_buffer(*buf_ptr);
     }
 
     return 0;

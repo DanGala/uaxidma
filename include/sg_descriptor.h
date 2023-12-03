@@ -52,33 +52,46 @@ struct alignas(64) sg_descriptor
     uint32_t reserved2[3];  //!< Used to ensure 16-word alignment
 };
 
+/**
+ * @brief Thin wrapper over a sg_descriptor to provide field setters and getters
+ */
+struct sg_descriptor_handle
+{
+    sg_descriptor_handle(sg_descriptor &desc);
+    bool completed() const;
+    void clear_complete_flag();
+    size_t get_buffer_len() const;
+    sg_descriptor &d;
+};
+
 class sg_descriptor_chain
 {
 public:
-    class sg_desc_iterator
+    class iterator
     {
         sg_descriptor* p_;
     public:
-        sg_desc_iterator(sg_descriptor *ptr);
-        sg_desc_iterator(const sg_desc_iterator& it);
+        iterator(sg_descriptor *ptr);
+        iterator(sg_descriptor &ref);
+        iterator(const iterator& it);
         sg_descriptor* operator-> () const;
         sg_descriptor& operator* () const;
         sg_descriptor& operator [] (int n) const;
-        sg_desc_iterator& operator++ ();
-        sg_desc_iterator operator++ (int);
-        sg_desc_iterator& operator-- ();
-        sg_desc_iterator operator-- (int);
-        sg_desc_iterator& operator+= (int n);
-        sg_desc_iterator& operator-= (int n);
-        bool operator== (const sg_desc_iterator& other);
-        bool operator!= (const sg_desc_iterator& other);
-        bool operator== (const sg_desc_iterator& other) const;
-        bool operator!= (const sg_desc_iterator& other) const;
+        iterator& operator++ ();
+        iterator operator++ (int);
+        iterator& operator-- ();
+        iterator operator-- (int);
+        iterator& operator+= (int n);
+        iterator& operator-= (int n);
+        bool operator== (const iterator& other);
+        bool operator!= (const iterator& other);
+        bool operator== (const iterator& other) const;
+        bool operator!= (const iterator& other) const;
 
-        friend std::ptrdiff_t operator- (sg_desc_iterator lhs, sg_desc_iterator rhs);
-        friend sg_desc_iterator operator+ (sg_desc_iterator lhs, int rhs);
-        friend sg_desc_iterator operator- (sg_desc_iterator lhs, int rhs);
-        friend sg_desc_iterator operator+ (int lhs, sg_desc_iterator rhs);
+        friend std::ptrdiff_t operator- (iterator lhs, iterator rhs);
+        friend iterator operator+ (iterator lhs, int rhs);
+        friend iterator operator- (iterator lhs, int rhs);
+        friend iterator operator+ (int lhs, iterator rhs);
     };
 
     sg_descriptor_chain() = default;
@@ -86,12 +99,14 @@ public:
     sg_descriptor& operator[](std::size_t idx);
     const sg_descriptor& operator[](std::size_t idx) const;
     std::size_t size() const;
-    sg_desc_iterator begin();
-    const sg_desc_iterator begin() const;
-    sg_desc_iterator end();
-    const sg_desc_iterator end() const;
-    sg_desc_iterator next(sg_desc_iterator& it);
-    const sg_desc_iterator next(const sg_desc_iterator& it) const;
+    std::size_t length() const;
+    iterator begin();
+    const iterator begin() const;
+    iterator end();
+    const iterator end() const;
+    iterator next(iterator& it);
+    const iterator next(const iterator& it) const;
+    std::size_t offset(const iterator& it) const;
 
 private:
     sg_descriptor* head_;
@@ -126,12 +141,30 @@ struct statusf_wrapper : public flags_wrapper<statusf>
 };
 
 /**
+ * @brief Thin wrapper around a const statusf object to provide field setters and getters
+ */
+struct cstatusf_wrapper : public cflags_wrapper<statusf>
+{
+    cstatusf_wrapper(const statusf& f) : cflags_wrapper<statusf>{f} {}
+    size_t get_xfer_bytes() const { return static_cast<size_t>(cflags & statusf::xfer_bytes); }
+};
+
+/**
  * @brief Thin wrapper around a volatile statusf object to provide field setters and getters
  */
 struct vstatusf_wrapper : public vflags_wrapper<statusf>
 {
     vstatusf_wrapper(volatile statusf& f) : vflags_wrapper<statusf>{f} {}
     size_t get_xfer_bytes() const volatile { return static_cast<size_t>(vflags & statusf::xfer_bytes); }
+};
+
+/**
+ * @brief Thin wrapper around a const volatile statusf object to provide field setters and getters
+ */
+struct cvstatusf_wrapper : public cvflags_wrapper<statusf>
+{
+    cvstatusf_wrapper(const volatile statusf& f) : cvflags_wrapper<statusf>{f} {}
+    size_t get_xfer_bytes() const volatile { return static_cast<size_t>(cvflags & statusf::xfer_bytes); }
 };
 
 #endif

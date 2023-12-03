@@ -5,77 +5,66 @@
 #include <stdlib.h>
 #include <string.h>
 
-uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, size_t udmabuf_offset,
-                 const std::string& axidma_uio_name, dma_mode mode, transfer_direction direction, size_t buffer_size)
+uint8_t *uaxidma::buffer::data()
+{
+    return data_;
+}
 
-    : axidma(udmabuf_name, udmabuf_size, udmabuf_offset, axidma_uio_name, static_cast<axi_dma::dma_mode>(mode),
-             static_cast<axi_dma::transfer_direction>(direction), buffer_size),
+size_t uaxidma::buffer::length()
+{
+    return length_;
+}
+
+bool uaxidma::buffer::set_payload(size_t len)
+{
+    if (len > capacity_)
+    {
+        return false;
+    }
+
+    length_ = len;
+    return true;
+}
+
+uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& axidma_uio_name, 
+                 dma_mode mode, transfer_direction direction, size_t buffer_size)
+
+    : axidma{udmabuf_name, udmabuf_size, axidma_uio_name, static_cast<axi_dma::dma_mode>(mode),
+             static_cast<axi_dma::transfer_direction>(direction), buffer_size},
       mode(mode),
-      direction(direction)
+      direction(direction),
+      buffers{(mode == dma_mode::normal)} // in cyclic mode, the hardware won't wait for the user anyway
 {
 }
 
 bool uaxidma::initialize()
 {
-    if (!axidma.initialize() || !axidma.start())
+    if (axidma.initialize() && axidma.start())
     {
-        return false;
-    }
+        buffers.initialize(axidma.sg_desc_chain.size());
 
-    buffers.resize(axidma.get_buffer_count());
+        for (auto& desc : axidma.sg_desc_chain)
+        {
+            buffers.add({axidma.get_virt_buffer_pointer(desc), axidma.get_buffer_size(), desc});
+        }
 
-    for (std::size_t i = 0; i < buffers.size(); ++i)
-    {
-        buffers[i].id_ = i;
-        buffers[i].data_ = axidma.get_virt_buffer_pointer(i);
-        buffers[i].capacity_ = axidma.get_buffer_size();
-    }
-
-    next_buffer_id = 0U;
-    free_buffers = axidma.get_buffer_count();
-
-    return true;
-}
-
-uint8_t *dma_buffer::data()
-{
-    return data_;
-}
-
-size_t dma_buffer::length()
-{
-    return length_;
-}
-
-bool dma_buffer::set_payload(size_t len)
-{
-    if (len <= capacity_)
-    {
-        length_ = len;
         return true;
     }
 
     return false;
 }
 
-std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int timeout)
+std::pair<uaxidma::acquisition_result, uaxidma::buffer*> uaxidma::get_buffer(int timeout)
 {
-    if (!free_buffers)
+    if (buffers.empty())
     {
-        // Cannot get any more buffers without calling submit_buffer()
         errno = EAGAIN;
         return {acquisition_result::error, nullptr};
     }
 
-    /* In cyclic mode, any number of buffers may have been completed in between calls.
-       If a buffer cannot be returned immediately (is in progress), wait for the
-       next interrupt (notification of buffer completion).
-       Stale interrupts must be cleared BEFORE checking for immediate availability,
-       in order not to mask events happening in between checking for availability
-       and waiting for an interrupt. */
     axidma.clean_interrupt();
 
-    if (!axidma.is_buffer_complete(next_buffer_id))
+    if (!buffers.peek_next().desc_handle_.completed())
     {
         auto poll_ret = axidma.poll_interrupt(timeout);
         if (poll_ret != axi_dma::acquisition_result::success)
@@ -84,42 +73,65 @@ std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int time
         }
     }
 
-    // Prepare buffer to check for completion again next time
-    axidma.clear_complete_flag(next_buffer_id);
+    buffer& acquired = buffers.acquire();
 
-    // Setup buffer with transfer details from DMA based on the buffer id
     if (direction == transfer_direction::dev_to_mem)
     {
-        buffers[next_buffer_id].set_payload(axidma.get_buffer_len(next_buffer_id));
-    }
-    else
-    {
-        buffers[next_buffer_id].set_payload(0);
+        acquired.set_payload(acquired.desc_handle_.get_buffer_len());
     }
 
-    // Update pointer for next call
-    next_buffer_id = (next_buffer_id == (axidma.get_buffer_count() - 1U))
-                         ? 0U
-                         : next_buffer_id + 1U;
-
-    // Update buffer pool stats
-    if (direction == transfer_direction::mem_to_dev)
-    {
-        free_buffers--;
-    }
-
-    return {acquisition_result::success, &buffers[next_buffer_id]};
+    return {acquisition_result::success, &acquired};
 }
 
-bool uaxidma::submit_buffer(const dma_buffer *buf)
+void uaxidma::mark_reusable(buffer &buf)
 {
-    if (axidma.transfer_buffer(buf->id_, buf->length_))
-    {
-        return false;
-    }
+    // Prepare buffer to check for completion again next time
+    buf.desc_handle_.clear_complete_flag();
+    buffers.release(buf);
+}
 
-    // Update buffer pool stats
-    free_buffers++;
+void uaxidma::submit_buffer(buffer &buf)
+{
+    axidma.transfer_buffer(buf.desc_handle_.d, buf.length_);
+    buffers.release(buf);
+}
 
-    return true;
+uaxidma::buffer_ring::buffer_ring(bool limit_refs)
+    : limit_refs_(limit_refs)
+{
+}
+
+void uaxidma::buffer_ring::initialize(size_t count)
+{
+    buffers_.reserve(count);
+}
+
+void uaxidma::buffer_ring::add(const buffer& buf)
+{
+    buffers_.push_back(buf);
+    if (!available_++) next_ = buffers_.begin();
+}
+
+bool uaxidma::buffer_ring::empty() const
+{
+    return (limit_refs_ && !available_);
+}
+
+const uaxidma::buffer &uaxidma::buffer_ring::peek_next() const
+{
+    return *next_;
+}
+
+uaxidma::buffer& uaxidma::buffer_ring::acquire()
+{
+    if (limit_refs_) available_--;
+    buffer &buf = *next_;
+    if (++next_ == buffers_.end()) next_ = buffers_.begin();
+    return buf;
+}
+
+void uaxidma::buffer_ring::release(buffer& buf)
+{
+    (void)buf;
+    if (limit_refs_) available_++;
 }
