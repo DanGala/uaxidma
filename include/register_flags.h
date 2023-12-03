@@ -51,11 +51,11 @@ inline constexpr flags operator~ (flags f)
 template <typename T>
 struct flags_wrapper
 {
-    flags_wrapper(T& f) : flags(f) {};
-    void set_flags(T f) { flags |= f; }
-    bool check_flags(T f) { return ((flags & f) == f); }
-    void clear_flags(T f) { flags &= ~f; }
-    T& flags;
+    flags_wrapper(T& f1) : f(f1) {};
+    void set(T f1) { f |= f1; }
+    bool check(T f1) { return ((f & f1) == f1); }
+    void clear(T f1) { f &= ~f1; }
+    T& f;
 };
 
 /**
@@ -64,9 +64,9 @@ struct flags_wrapper
 template <typename T>
 struct cflags_wrapper
 {
-    cflags_wrapper(const T& f) : cflags(f) {};
-    bool check_flags(T f) const { return ((cflags & f) == f); }
-    const T& cflags;
+    cflags_wrapper(const T& f1) : cf(f1) {};
+    bool check(T f1) const { return ((cf & f1) == f1); }
+    const T& cf;
 };
 
 /**
@@ -75,11 +75,11 @@ struct cflags_wrapper
 template <typename T>
 struct vflags_wrapper
 {
-    vflags_wrapper(volatile T& f) : vflags(f) {};
-    void set_flags(T f) volatile { vflags |= f; }
-    bool check_flags(T f) volatile { return ((vflags & f) == f); }
-    void clear_flags(T f) volatile { vflags &= ~f; }
-    volatile T& vflags;
+    vflags_wrapper(volatile T& f1) : vf(f1) {};
+    void set(T f1) volatile { vf |= f1; }
+    bool check(T f1) volatile { return ((vf & f1) == f1); }
+    void clear(T f1) volatile { vf &= ~f1; }
+    volatile T& vf;
 };
 
 /**
@@ -88,9 +88,9 @@ struct vflags_wrapper
 template <typename T>
 struct cvflags_wrapper
 {
-    cvflags_wrapper(const volatile T& f) : cvflags(f) {};
-    bool check_flags(T f) const volatile { return ((cvflags & f) == f); }
-    const volatile T& cvflags;
+    cvflags_wrapper(const volatile T& f1) : cvf(f1) {};
+    bool check(T f1) const volatile { return ((cvf & f1) == f1); }
+    const volatile T& cvf;
 };
 
 #endif

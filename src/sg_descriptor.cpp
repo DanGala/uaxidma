@@ -8,7 +8,7 @@ sg_descriptor_handle::sg_descriptor_handle(sg_descriptor &desc)
 bool sg_descriptor_handle::completed() const
 {
     cstatusf_wrapper status{d.status};
-    bool complete = status.check_flags(statusf::complete);
+    bool complete = status.flags.check(statusf::complete);
     if (complete)
     {
 #ifdef __ARM_ARCH
@@ -22,7 +22,7 @@ bool sg_descriptor_handle::completed() const
 void sg_descriptor_handle::clear_complete_flag()
 {
     statusf_wrapper status{d.status};
-    status.clear_flags(statusf::complete);
+    status.flags.clear(statusf::complete);
 #ifdef __ARM_ARCH
     // Avoid speculatively doing any work before the status is actually updated
     asm volatile("dmb st");

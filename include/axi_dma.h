@@ -76,31 +76,33 @@ private:
     /**
      * @brief Thin wrapper around a dmacontrolf object to provide field setters and getters
      */
-    struct dmacontrolf_wrapper : public flags_wrapper<dmacontrolf>
+    struct dmacontrolf_wrapper
     {
-        dmacontrolf_wrapper(dmacontrolf& f) : flags_wrapper<dmacontrolf>{f} {}
-        void run() { set_flags(dmacontrolf::rs); }
-        void stop() { clear_flags(dmacontrolf::rs); }
-        void reset() { set_flags(dmacontrolf::reset); }
-        bool in_reset_state() { return check_flags(dmacontrolf::reset); }
-        void enable_irqs(dma_irqs irqs) { set_flags(dmacontrolf::all_irq_en & static_cast<dmacontrolf>(irqs)); }
-        void set_irq_threshold(uint32_t thresh) { set_flags(dmacontrolf::irq_thresh & thresh); }
-        void enable_cyclic_mode() { set_flags(dmacontrolf::cyclic_bd_en); }
+        flags_wrapper<dmacontrolf> flags;
+        dmacontrolf_wrapper(dmacontrolf& f) : flags{f} {}
+        void run() { flags.set(dmacontrolf::rs); }
+        void stop() { flags.clear(dmacontrolf::rs); }
+        void reset() { flags.set(dmacontrolf::reset); }
+        bool in_reset_state() { return flags.check(dmacontrolf::reset); }
+        void enable_irqs(dma_irqs irqs) { flags.set(dmacontrolf::all_irq_en & static_cast<dmacontrolf>(irqs)); }
+        void set_irq_threshold(uint32_t thresh) { flags.set(dmacontrolf::irq_thresh & thresh); }
+        void enable_cyclic_mode() { flags.set(dmacontrolf::cyclic_bd_en); }
     };
 
     /**
      * @brief Thin wrapper around a volatile dmacontrolf object to provide field setters and getters
      */
-    struct vdmacontrolf_wrapper : public vflags_wrapper<dmacontrolf>
+    struct vdmacontrolf_wrapper
     {
-        vdmacontrolf_wrapper(volatile dmacontrolf& f) : vflags_wrapper<dmacontrolf>{f} {}
-        void run() { set_flags(dmacontrolf::rs); }
-        void stop() { clear_flags(dmacontrolf::rs); }
-        void reset() { set_flags(dmacontrolf::reset); }
-        bool in_reset_state() { return check_flags(dmacontrolf::reset); }
-        void enable_irqs(dma_irqs irqs) { set_flags(dmacontrolf::all_irq_en & static_cast<dmacontrolf>(irqs)); }
-        void set_irq_threshold(uint32_t thresh) volatile { set_flags(dmacontrolf::irq_thresh & thresh); }
-        void enable_cyclic_mode() { set_flags(dmacontrolf::cyclic_bd_en); }
+        vflags_wrapper<dmacontrolf> flags;
+        vdmacontrolf_wrapper(volatile dmacontrolf& f) : flags{f} {}
+        void run() { flags.set(dmacontrolf::rs); }
+        void stop() { flags.clear(dmacontrolf::rs); }
+        void reset() { flags.set(dmacontrolf::reset); }
+        bool in_reset_state() { return flags.check(dmacontrolf::reset); }
+        void enable_irqs(dma_irqs irqs) { flags.set(dmacontrolf::all_irq_en & static_cast<dmacontrolf>(irqs)); }
+        void set_irq_threshold(uint32_t thresh) volatile { flags.set(dmacontrolf::irq_thresh & thresh); }
+        void enable_cyclic_mode() { flags.set(dmacontrolf::cyclic_bd_en); }
     };
 
     /**
@@ -130,19 +132,21 @@ private:
     /**
      * @brief Thin wrapper around a dmastatusf object to provide field setters and getters
      */
-    struct dmastatusf_wrapper : public flags_wrapper<dmastatusf>
+    struct dmastatusf_wrapper
     {
-        dmastatusf_wrapper(dmastatusf& f) : flags_wrapper<dmastatusf>{f} {}
-        void clear_irqs(dma_irqs irqs) { set_flags(dmastatusf::all_irqs & static_cast<dmastatusf>(irqs)); }
+        flags_wrapper<dmastatusf> flags;
+        dmastatusf_wrapper(dmastatusf& f) : flags{f} {}
+        void clear_irqs(dma_irqs irqs) { flags.set(dmastatusf::all_irqs & static_cast<dmastatusf>(irqs)); }
     };
 
     /**
      * @brief Thin wrapper around a volatile dmastatusf object to provide field setters and getters
      */
-    struct vdmastatusf_wrapper : public vflags_wrapper<dmastatusf>
+    struct vdmastatusf_wrapper
     {
-        vdmastatusf_wrapper(volatile dmastatusf& f) : vflags_wrapper<dmastatusf>{f} {}
-        void clear_irqs(dma_irqs irqs) { set_flags(dmastatusf::all_irqs & static_cast<dmastatusf>(irqs)); }
+        vflags_wrapper<dmastatusf> flags;
+        vdmastatusf_wrapper(volatile dmastatusf& f) : flags{f} {}
+        void clear_irqs(dma_irqs irqs) { flags.set(dmastatusf::all_irqs & static_cast<dmastatusf>(irqs)); }
     };
 
     /**

@@ -116,55 +116,61 @@ private:
 /**
  * @brief Thin wrapper around a controlf object to provide field setters and getters
  */
-struct controlf_wrapper : public flags_wrapper<controlf>
+struct controlf_wrapper
 {
-    controlf_wrapper(controlf& f) : flags_wrapper<controlf>{f} {}
-    void set_buf_len(size_t len) { set_flags(controlf::buf_len & len); }
+    flags_wrapper<controlf> flags;
+    controlf_wrapper(controlf& f) : flags{f} {}
+    void set_buf_len(size_t len) { flags.set(controlf::buf_len & len); }
 };
 
 /**
  * @brief Thin wrapper around a volatile controlf object to provide field setters and getters
  */
-struct vcontrolf_wrapper : public vflags_wrapper<controlf>
+struct vcontrolf_wrapper
 {
-    vcontrolf_wrapper(volatile controlf& f) : vflags_wrapper<controlf>{f} {}
-    void set_buf_len(size_t len) volatile { set_flags(controlf::buf_len & len); }
+    vflags_wrapper<controlf> flags;
+    vcontrolf_wrapper(volatile controlf& f) : flags{f} {}
+    void set_buf_len(size_t len) volatile { flags.set(controlf::buf_len & len); }
 };
 
 /**
  * @brief Thin wrapper around a statusf object to provide field setters and getters
  */
-struct statusf_wrapper : public flags_wrapper<statusf>
+struct statusf_wrapper
 {
-    statusf_wrapper(statusf& f) : flags_wrapper<statusf>{f} {}
-    size_t get_xfer_bytes() const { return static_cast<size_t>(flags & statusf::xfer_bytes); }
+    flags_wrapper<statusf> flags;
+    statusf_wrapper(statusf& f) : flags{f} {}
+    size_t get_xfer_bytes() const { return static_cast<size_t>(flags.f & statusf::xfer_bytes); }
 };
 
 /**
  * @brief Thin wrapper around a const statusf object to provide field setters and getters
  */
-struct cstatusf_wrapper : public cflags_wrapper<statusf>
+struct cstatusf_wrapper
 {
-    cstatusf_wrapper(const statusf& f) : cflags_wrapper<statusf>{f} {}
-    size_t get_xfer_bytes() const { return static_cast<size_t>(cflags & statusf::xfer_bytes); }
+    cflags_wrapper<statusf> flags;
+    cstatusf_wrapper(const statusf& f) : flags{f} {}
+    size_t get_xfer_bytes() const { return static_cast<size_t>(flags.cf & statusf::xfer_bytes); }
 };
 
 /**
  * @brief Thin wrapper around a volatile statusf object to provide field setters and getters
  */
-struct vstatusf_wrapper : public vflags_wrapper<statusf>
+struct vstatusf_wrapper
 {
-    vstatusf_wrapper(volatile statusf& f) : vflags_wrapper<statusf>{f} {}
-    size_t get_xfer_bytes() const volatile { return static_cast<size_t>(vflags & statusf::xfer_bytes); }
+    vflags_wrapper<statusf> flags;
+    vstatusf_wrapper(volatile statusf& f) : flags{f} {}
+    size_t get_xfer_bytes() const volatile { return static_cast<size_t>(flags.vf & statusf::xfer_bytes); }
 };
 
 /**
  * @brief Thin wrapper around a const volatile statusf object to provide field setters and getters
  */
-struct cvstatusf_wrapper : public cvflags_wrapper<statusf>
+struct cvstatusf_wrapper
 {
-    cvstatusf_wrapper(const volatile statusf& f) : cvflags_wrapper<statusf>{f} {}
-    size_t get_xfer_bytes() const volatile { return static_cast<size_t>(cvflags & statusf::xfer_bytes); }
+    cvflags_wrapper<statusf> flags;
+    cvstatusf_wrapper(const volatile statusf& f) : flags{f} {}
+    size_t get_xfer_bytes() const volatile { return static_cast<size_t>(flags.cvf & statusf::xfer_bytes); }
 };
 
 #endif

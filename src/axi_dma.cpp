@@ -62,12 +62,12 @@ void axi_dma::create_desc_ring(std::size_t buffer_count)
         statusf_wrapper status{d.status};
         
         control.set_buf_len(buffer_size);
-        status.clear_flags(statusf::all);
+        status.flags.clear(statusf::all);
 
         if (direction == transfer_direction::mm2s)
         {
-            control.set_flags(controlf::sof | controlf::eof); // Each AXI packet sent occupies exactly 1 DMA buffer
-            status.set_flags(statusf::complete); // Stall until the PS is ready to transmit
+            control.flags.set(controlf::sof | controlf::eof); // Each AXI packet sent occupies exactly 1 DMA buffer
+            status.flags.set(statusf::complete); // Stall until the PS is ready to transmit
         }
 
         next_desc += sizeof(sg_descriptor);
@@ -129,7 +129,7 @@ bool axi_dma::initialize()
 
     // Ensure that the Scatter Gather Engine is included and the AXI DMA is configured for Scatter Gather mode
     vdmastatusf_wrapper status{registers.status};
-    if (status.check_flags(dmastatusf::sg_incld))
+    if (status.flags.check(dmastatusf::sg_incld))
     {
         return false;
     }
@@ -285,7 +285,7 @@ bool axi_dma::stop()
 
     unsigned int spin_count = 128U;
     vdmastatusf_wrapper status{registers.status};
-    while (!status.check_flags(dmastatusf::halted))
+    while (!status.flags.check(dmastatusf::halted))
     {
         if (--spin_count == 0)
         {
@@ -399,11 +399,11 @@ axi_dma::acquisition_result axi_dma::poll_interrupt(int timeout)
 void axi_dma::transfer_buffer(sg_descriptor &desc, size_t len)
 {
     controlf_wrapper control{desc.control};
-    control.set_flags(controlf::sof | controlf::eof);
+    control.flags.set(controlf::sof | controlf::eof);
     control.set_buf_len(len);
 
     statusf_wrapper status{desc.status};
-    status.clear_flags(statusf::complete | statusf::dma_errors);
+    status.flags.clear(statusf::complete | statusf::dma_errors);
 
     // Update tail descriptor to point to the current buffer descriptor
     ptrdiff_t desc_offset = sg_desc_chain.offset(sg_descriptor_chain::iterator{&desc});
