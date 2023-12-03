@@ -5,17 +5,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint8_t *dma_buffer::data()
+uint8_t *uaxidma::buffer::data()
 {
     return data_;
 }
 
-size_t dma_buffer::length()
+size_t uaxidma::buffer::length()
 {
     return length_;
 }
 
-bool dma_buffer::set_payload(size_t len)
+bool uaxidma::buffer::set_payload(size_t len)
 {
     if (len > capacity_)
     {
@@ -54,7 +54,7 @@ bool uaxidma::initialize()
     return false;
 }
 
-std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int timeout)
+std::pair<uaxidma::acquisition_result, uaxidma::buffer*> uaxidma::get_buffer(int timeout)
 {
     if (buffers.empty())
     {
@@ -73,7 +73,7 @@ std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int time
         }
     }
 
-    dma_buffer& acquired = buffers.acquire();
+    buffer& acquired = buffers.acquire();
 
     if (direction == transfer_direction::dev_to_mem)
     {
@@ -83,54 +83,54 @@ std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int time
     return {acquisition_result::success, &acquired};
 }
 
-void uaxidma::mark_reusable(dma_buffer &buf)
+void uaxidma::mark_reusable(buffer &buf)
 {
     // Prepare buffer to check for completion again next time
     buf.desc_handle_.clear_complete_flag();
     buffers.release(buf);
 }
 
-void uaxidma::submit_buffer(dma_buffer &buf)
+void uaxidma::submit_buffer(buffer &buf)
 {
     axidma.transfer_buffer(buf.desc_handle_.d, buf.length_);
     buffers.release(buf);
 }
 
-uaxidma::dma_buffer_ring::dma_buffer_ring(bool limit_refs)
+uaxidma::buffer_ring::buffer_ring(bool limit_refs)
     : limit_refs_(limit_refs)
 {
 }
 
-void uaxidma::dma_buffer_ring::initialize(size_t count)
+void uaxidma::buffer_ring::initialize(size_t count)
 {
     buffers_.reserve(count);
 }
 
-void uaxidma::dma_buffer_ring::add(const dma_buffer& buf)
+void uaxidma::buffer_ring::add(const buffer& buf)
 {
     buffers_.push_back(buf);
     if (!available_++) next_ = buffers_.begin();
 }
 
-bool uaxidma::dma_buffer_ring::empty() const
+bool uaxidma::buffer_ring::empty() const
 {
     return (limit_refs_ && !available_);
 }
 
-const dma_buffer &uaxidma::dma_buffer_ring::peek_next() const
+const uaxidma::buffer &uaxidma::buffer_ring::peek_next() const
 {
     return *next_;
 }
 
-dma_buffer& uaxidma::dma_buffer_ring::acquire()
+uaxidma::buffer& uaxidma::buffer_ring::acquire()
 {
     if (limit_refs_) available_--;
-    dma_buffer &buf = *next_;
+    buffer &buf = *next_;
     if (++next_ == buffers_.end()) next_ = buffers_.begin();
     return buf;
 }
 
-void uaxidma::dma_buffer_ring::release(dma_buffer& ptr)
+void uaxidma::buffer_ring::release(buffer& ptr)
 {
     (void)ptr;
     if (limit_refs_) available_++;

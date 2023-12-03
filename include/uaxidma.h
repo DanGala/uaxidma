@@ -7,35 +7,6 @@
 #include <memory>
 #include <vector>
 
-class dma_buffer
-{
-friend class uaxidma;
-public:
-    dma_buffer(uint8_t *data, size_t max_len, sg_descriptor& desc)
-        : data_(data), length_(0), capacity_(max_len), desc_handle_{desc} {}
-    /**
-     * @brief Returns the pointer to the beginning of data
-     * @return nullptr on errors
-     */
-    uint8_t *data();
-    /**
-     * @brief Returns the number of bytes of data received
-     * @return data length
-     */
-    size_t length();
-    /**
-     * @brief Sets the number of bytes of data to be sent
-     * @param len new data length
-     * @return false if len exceeds the buffer's capacity
-     */
-    bool set_payload(size_t len);
-private:
-    uint8_t *data_;
-    size_t length_;
-    size_t capacity_;
-    sg_descriptor_handle desc_handle_;
-};
-
 class uaxidma
 {
 public:
@@ -57,6 +28,35 @@ public:
         success = static_cast<int>(axi_dma::acquisition_result::success),
         error = static_cast<int>(axi_dma::acquisition_result::error),
         timeout = static_cast<int>(axi_dma::acquisition_result::timeout)
+    };
+
+    class buffer
+    {
+    friend class uaxidma;
+    public:
+        buffer(uint8_t *data, size_t max_len, sg_descriptor& desc)
+            : data_(data), length_(0), capacity_(max_len), desc_handle_{desc} {}
+        /**
+         * @brief Returns the pointer to the beginning of data
+         * @return nullptr on errors
+         */
+        uint8_t *data();
+        /**
+         * @brief Returns the number of bytes of data received
+         * @return data length
+         */
+        size_t length();
+        /**
+         * @brief Sets the number of bytes of data to be sent
+         * @param len new data length
+         * @return false if len exceeds the buffer's capacity
+         */
+        bool set_payload(size_t len);
+    private:
+        uint8_t *data_;
+        size_t length_;
+        size_t capacity_;
+        sg_descriptor_handle desc_handle_;
     };
 
     /**
@@ -106,33 +106,33 @@ public:
      * @return Pair of acquisition_result object representing the success of the operation and pointer to the buffer,
      *         nullptr on error
      */
-    std::pair<acquisition_result, dma_buffer*> get_buffer(int timeout);
+    std::pair<acquisition_result, buffer*> get_buffer(int timeout);
 
     /**
      * @brief Returns buffer ownership to the DMA library
      * @note To be used only when direction has been set to dev_to_mem
      */
-    void mark_reusable(dma_buffer &buf);
+    void mark_reusable(buffer &buf);
 
     /**
      * @brief Submits a buffer for transmission to the device end-point
      * @note To be used only when direction has been set to mem_to_dev
      */
-    void submit_buffer(dma_buffer &buf);
+    void submit_buffer(buffer &buf);
 
 private:
 
-    class dma_buffer_ring
+    class buffer_ring
     {
     public:
         /**
-         * @brief Construct an empty list of dma_buffer pointers
+         * @brief Construct an empty list of buffer pointers
          */
-        dma_buffer_ring() = default;
+        buffer_ring() = default;
         /**
-         * @brief Construct an empty list of dma_buffer pointers with reference limits enabled
+         * @brief Construct an empty list of buffer pointers with reference limits enabled
          */
-        dma_buffer_ring(bool limit_refs);
+        buffer_ring(bool limit_refs);
         /**
          * @brief Sets the maximum number of buffers in the list
          */
@@ -140,7 +140,7 @@ private:
         /**
          * @brief Inserts a new element at the end of the list
          */
-        void add(const dma_buffer& ptr);
+        void add(const buffer& ptr);
         /**
          * @brief Returns true if the number of available buffers is zero, false otherwise
          */
@@ -148,18 +148,18 @@ private:
         /**
          * @brief Provides a read-only view of the next available buffer from the list
          */
-        const dma_buffer &peek_next() const;
+        const buffer &peek_next() const;
         /**
          * @brief Obtains the next available buffer. The buffer returned won't be available again until released.
          */
-        dma_buffer& acquire();
+        buffer& acquire();
         /**
          * @brief Releases a buffer, making it available for future use
          */
-        void release(dma_buffer& ptr);
+        void release(buffer& ptr);
     private:
-        std::vector<dma_buffer> buffers_;
-        std::vector<dma_buffer>::iterator next_;
+        std::vector<buffer> buffers_;
+        std::vector<buffer>::iterator next_;
         std::size_t available_;
         bool limit_refs_;
     };
@@ -167,7 +167,7 @@ private:
     axi_dma axidma;
     dma_mode mode;
     transfer_direction direction;
-    dma_buffer_ring buffers;
+    buffer_ring buffers;
 };
 
 #endif // #ifndef _DMA_H
