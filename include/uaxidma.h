@@ -140,7 +140,7 @@ private:
         /**
          * @brief Inserts a new element at the end of the list
          */
-        void add(const buffer& ptr);
+        void add(const buffer& buf);
         /**
          * @brief Returns true if the number of available buffers is zero, false otherwise
          */
@@ -156,7 +156,7 @@ private:
         /**
          * @brief Releases a buffer, making it available for future use
          */
-        void release(buffer& ptr);
+        void release(buffer& buf);
     private:
         std::vector<buffer> buffers_;
         std::vector<buffer>::iterator next_;

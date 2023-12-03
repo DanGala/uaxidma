@@ -130,8 +130,8 @@ uaxidma::buffer& uaxidma::buffer_ring::acquire()
     return buf;
 }
 
-void uaxidma::buffer_ring::release(buffer& ptr)
+void uaxidma::buffer_ring::release(buffer& buf)
 {
-    (void)ptr;
+    (void)buf;
     if (limit_refs_) available_++;
 }
