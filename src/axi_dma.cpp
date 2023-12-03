@@ -179,7 +179,7 @@ bool axi_dma::start_normal()
     // completed Note that non-cyclic operation will be configured: the DMA will stall when all
     // buffer descriptors are complete
     vdmacontrolf_wrapper control{registers.control};
-    control.set_flags(dmacontrolf::ioc_irq_en | dmacontrolf::err_irq_en);
+    control.enable_irqs(dma_irqs::on_complete | dma_irqs::error);
     control.set_irq_threshold(1u);
 
     // Set current descriptor pointer to the first descriptor
@@ -192,7 +192,7 @@ bool axi_dma::start_normal()
     registers.current_desc_low, lower_32_bits(first_desc);
 
     // Start AXI DMA but don't set the tail descriptor yet
-    control.set_flags(dmacontrolf::rs);
+    control.run();
 
     return true;
 }
@@ -213,7 +213,8 @@ bool axi_dma::start_cyclic()
 
     // Prepare control word for starting the cyclic DMA channel and generating one interrupt for each BD completed
     vdmacontrolf_wrapper control{registers.control};
-    control.set_flags(dmacontrolf::cyclic_bd_en | dmacontrolf::ioc_irq_en | dmacontrolf::err_irq_en);
+    control.enable_cyclic_mode();
+    control.enable_irqs(dma_irqs::on_complete | dma_irqs::error);
     control.set_irq_threshold(1u);
 
     // Set current descriptor pointer to the first descriptor
@@ -226,7 +227,7 @@ bool axi_dma::start_cyclic()
     registers.current_desc_low = lower_32_bits(first_desc);
 
     // Start DMA channel
-    control.set_flags(dmacontrolf::rs);
+    control.run();
 
     // Set tail descriptor pointer:
     // According to the programming sequence described in the IP Product Guide, the actual value
@@ -280,7 +281,7 @@ bool axi_dma::stop()
 
     // Reset the RS bit in the control register and wait a bit for the DMA channel to be halted
     vdmacontrolf_wrapper control{registers.control};
-    control.clear_flags(dmacontrolf::rs);
+    control.stop();
 
     unsigned int spin_count = 128U;
     vdmastatusf_wrapper status{registers.status};
@@ -307,15 +308,14 @@ bool axi_dma::stop()
  */
 bool axi_dma::reset()
 {
-    // Set the Reset bit in the control register to soft-reset the DMA engine
-    // It doesn't really matter whether the Reset bit is set on S2MM_DMACR or MM2S_DMACR,
+    // Soft-reset the DMA engine
+    // It doesn't really matter whether S2MM or MM2S control register is used,
     // as the whole AXI DMA will be reset.
     vdmacontrolf_wrapper control{registers_base->mm2s.control};
-    control.set_flags(dmacontrolf::reset);
+    control.reset();
 
-    // While the reset is in progress, the Reset bit remains high
     unsigned int spin_count = 128U;
-    while (control.check_flags(dmacontrolf::reset))
+    while (control.in_reset_state())
     {
         if (--spin_count == 0)
         {
@@ -341,7 +341,7 @@ void axi_dma::clean_interrupt()
                                         ? registers_base->mm2s : registers_base->s2mm;
 
     vdmastatusf_wrapper status{registers.status};
-    status.set_flags(dmastatusf::ioc_irq | dmastatusf::err_irq);
+    status.clear_irqs(dma_irqs::on_complete | dma_irqs::error);
 
     // Memory barrier to ensure IRQs are cleared before following operations assuming a clean slate
 #ifdef __ARM_ARCH

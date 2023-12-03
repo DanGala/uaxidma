@@ -32,6 +32,13 @@ public:
         timeout = 0
     };
 
+    enum class dma_irqs : uint32_t
+    {
+        on_complete = 1u << 12,
+        delay = 1u << 13,
+        error = 1u << 14
+    };
+
     explicit axi_dma(const std::string& udmabuf_name, size_t udmabuf_size, const std::string& uio_device_name,
             dma_mode mode, transfer_direction direction, size_t buffer_size);
     axi_dma() = delete;
@@ -72,7 +79,13 @@ private:
     struct dmacontrolf_wrapper : public flags_wrapper<dmacontrolf>
     {
         dmacontrolf_wrapper(dmacontrolf& f) : flags_wrapper<dmacontrolf>{f} {}
+        void run() { set_flags(dmacontrolf::rs); }
+        void stop() { clear_flags(dmacontrolf::rs); }
+        void reset() { set_flags(dmacontrolf::reset); }
+        bool in_reset_state() { return check_flags(dmacontrolf::reset); }
+        void enable_irqs(dma_irqs irqs) { set_flags(dmacontrolf::all_irq_en & static_cast<dmacontrolf>(irqs)); }
         void set_irq_threshold(uint32_t thresh) { set_flags(dmacontrolf::irq_thresh & thresh); }
+        void enable_cyclic_mode() { set_flags(dmacontrolf::cyclic_bd_en); }
     };
 
     /**
@@ -81,7 +94,13 @@ private:
     struct vdmacontrolf_wrapper : public vflags_wrapper<dmacontrolf>
     {
         vdmacontrolf_wrapper(volatile dmacontrolf& f) : vflags_wrapper<dmacontrolf>{f} {}
+        void run() { set_flags(dmacontrolf::rs); }
+        void stop() { clear_flags(dmacontrolf::rs); }
+        void reset() { set_flags(dmacontrolf::reset); }
+        bool in_reset_state() { return check_flags(dmacontrolf::reset); }
+        void enable_irqs(dma_irqs irqs) { set_flags(dmacontrolf::all_irq_en & static_cast<dmacontrolf>(irqs)); }
         void set_irq_threshold(uint32_t thresh) volatile { set_flags(dmacontrolf::irq_thresh & thresh); }
+        void enable_cyclic_mode() { set_flags(dmacontrolf::cyclic_bd_en); }
     };
 
     /**
@@ -114,6 +133,7 @@ private:
     struct dmastatusf_wrapper : public flags_wrapper<dmastatusf>
     {
         dmastatusf_wrapper(dmastatusf& f) : flags_wrapper<dmastatusf>{f} {}
+        void clear_irqs(dma_irqs irqs) { set_flags(dmastatusf::all_irqs & static_cast<dmastatusf>(irqs)); }
     };
 
     /**
@@ -122,6 +142,7 @@ private:
     struct vdmastatusf_wrapper : public vflags_wrapper<dmastatusf>
     {
         vdmastatusf_wrapper(volatile dmastatusf& f) : vflags_wrapper<dmastatusf>{f} {}
+        void clear_irqs(dma_irqs irqs) { set_flags(dmastatusf::all_irqs & static_cast<dmastatusf>(irqs)); }
     };
 
     /**
