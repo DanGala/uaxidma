@@ -164,12 +164,12 @@ private:
     struct memory_map
     {
         sg_registers mm2s; //!< MM2S registers
-        uint32_t sg_ctl;          //!< Scatter/Gather User and Cache
+        uint32_t sg_ctl;   //!< Scatter/Gather User and Cache
         sg_registers s2mm; //!< S2MM registers
     };
 
     u_dma_buf udmabuf;                   //!< Associated u-dma-buf buffer
-    uio_device uio;                      //!< AXI DMA UIO device
+    uio_device device;                   //!< AXI DMA UIO device
     dma_mode mode;                       //!< Operational Mode
     transfer_direction direction;        //!< Channel direction
     size_t buffer_size;                  //!< Scatter/Gather buffer size

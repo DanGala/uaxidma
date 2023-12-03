@@ -24,7 +24,7 @@ static inline constexpr uintmax_t real_address(uintmax_t upper, uintmax_t lower)
 bool axi_dma::mask_interrupt()
 {
     static constexpr int32_t mask = 0;
-    return (write(uio.fd, &mask, sizeof(mask)) != sizeof(mask));
+    return (write(device.fd, &mask, sizeof(mask)) != sizeof(mask));
 }
 
 /**
@@ -34,7 +34,7 @@ bool axi_dma::mask_interrupt()
 bool axi_dma::unmask_interrupt()
 {
     static constexpr int32_t unmask = 1;
-    return (write(uio.fd, &unmask, sizeof(unmask)) != sizeof(unmask));
+    return (write(device.fd, &unmask, sizeof(unmask)) != sizeof(unmask));
 }
 
 /**
@@ -90,7 +90,7 @@ axi_dma::axi_dma(const std::string& udmabuf_name, size_t udmabuf_size,
                  size_t buffer_size)
 
     : udmabuf{udmabuf_name, udmabuf_size},
-      uio{uio_device_name},
+      device{uio_device_name},
       mode(mode),
       direction(direction),
 #ifdef USE_DATA_REALIGNMENT_ENGINE
@@ -114,11 +114,11 @@ bool axi_dma::initialize()
     }
 
     // Initialize poll structure to monitor interrupts
-    fds.fd = uio.fd;
+    fds.fd = device.fd;
     fds.events = POLLIN;
 
     // Map AXI DMA peripheral to virtual address space
-    registers_base = reinterpret_cast<volatile memory_map *>(uio.map());
+    registers_base = reinterpret_cast<volatile memory_map *>(device.map());
     if (!registers_base)
     {
         return false;
@@ -157,7 +157,7 @@ bool axi_dma::initialize()
 axi_dma::~axi_dma()
 {
     reset();
-    uio.unmap();
+    device.unmap();
 }
 
 /**
@@ -376,7 +376,7 @@ axi_dma::acquisition_result axi_dma::poll_interrupt(int timeout)
     {
         // Blocking wait for a DMA interrupt - this should return immediately as we are only polling one fd
         int32_t n_interrupts;
-        if (read(uio.fd, &n_interrupts, sizeof(n_interrupts))
+        if (read(device.fd, &n_interrupts, sizeof(n_interrupts))
             != sizeof(n_interrupts))
         {
             ret = acquisition_result::error;
