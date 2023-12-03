@@ -20,7 +20,7 @@ udmabuf0 {
 
 udmabuf1 {
     compatible = "ikwzm,u-dma-buf";
-    device-name = "udmabuf0";
+    device-name = "udmabuf1";
     minor-number = <0>;
     size = <0x00100000>;
     sync-mode = <3>;
