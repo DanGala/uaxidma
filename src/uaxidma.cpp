@@ -39,19 +39,19 @@ uaxidma::uaxidma(const std::string& udmabuf_name, size_t udmabuf_size, const std
 
 bool uaxidma::initialize()
 {
-    if (!axidma.initialize() || !axidma.start())
+    if (axidma.initialize() && axidma.start())
     {
-        return false;
+        buffers.initialize(axidma.sg_desc_chain.size());
+
+        for (auto& desc : axidma.sg_desc_chain)
+        {
+            buffers.add({axidma.get_virt_buffer_pointer(desc), axidma.get_buffer_size(), desc});
+        }
+
+        return true;
     }
 
-    buffers.initialize(axidma.sg_desc_chain.length());
-
-    for (auto& desc : axidma.sg_desc_chain)
-    {
-        buffers.add({axidma.get_virt_buffer_pointer(desc), axidma.get_buffer_size(), desc});
-    }
-
-    return true;
+    return false;
 }
 
 std::pair<uaxidma::acquisition_result, dma_buffer*> uaxidma::get_buffer(int timeout)

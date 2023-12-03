@@ -42,7 +42,7 @@ public:
     acquisition_result poll_interrupt(int timeout);
     void transfer_buffer(sg_descriptor &desc, size_t len);
     size_t get_buffer_size() const;
-    uint8_t *get_virt_buffer_pointer(const sg_descriptor &desc) const;
+    uint8_t *get_virt_buffer_pointer(sg_descriptor &desc) const;
 
     sg_descriptor_chain sg_desc_chain;   //!< Scatter/Gather descriptor chain
 

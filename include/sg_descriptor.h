@@ -72,6 +72,7 @@ public:
         sg_descriptor* p_;
     public:
         iterator(sg_descriptor *ptr);
+        iterator(sg_descriptor &ref);
         iterator(const iterator& it);
         sg_descriptor* operator-> () const;
         sg_descriptor& operator* () const;
@@ -93,32 +94,6 @@ public:
         friend iterator operator+ (int lhs, iterator rhs);
     };
 
-    class const_iterator
-    {
-        const sg_descriptor* cp_;
-    public:
-        const_iterator(const sg_descriptor *ptr);
-        const_iterator(const const_iterator& it);
-        const sg_descriptor* operator-> () const;
-        const sg_descriptor& operator* () const;
-        const sg_descriptor& operator [] (int n) const;
-        const_iterator& operator++ ();
-        const_iterator operator++ (int);
-        const_iterator& operator-- ();
-        const_iterator operator-- (int);
-        const_iterator& operator+= (int n);
-        const_iterator& operator-= (int n);
-        bool operator== (const const_iterator& other);
-        bool operator!= (const const_iterator& other);
-        bool operator== (const const_iterator& other) const;
-        bool operator!= (const const_iterator& other) const;
-
-        friend std::ptrdiff_t operator- (const_iterator lhs, const_iterator rhs);
-        friend const_iterator operator+ (const_iterator lhs, int rhs);
-        friend const_iterator operator- (const_iterator lhs, int rhs);
-        friend const_iterator operator+ (int lhs, const_iterator rhs);
-    };
-
     sg_descriptor_chain() = default;
     sg_descriptor_chain(sg_descriptor *ptr, std::size_t sz);
     sg_descriptor& operator[](std::size_t idx);
@@ -126,18 +101,12 @@ public:
     std::size_t size() const;
     std::size_t length() const;
     iterator begin();
-    const_iterator const_begin() const;
     const iterator begin() const;
     iterator end();
-    const_iterator const_end() const;
     const iterator end() const;
     iterator next(iterator& it);
-    const_iterator next(const_iterator& it);
     const iterator next(const iterator& it) const;
-    const const_iterator next(const const_iterator& it) const;
-
-    static std::size_t distance(const iterator& first, const iterator& last);
-    static std::size_t distance(const const_iterator& first, const const_iterator& last);
+    std::size_t offset(const iterator& it) const;
 
 private:
     sg_descriptor* head_;

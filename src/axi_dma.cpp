@@ -406,7 +406,7 @@ void axi_dma::transfer_buffer(sg_descriptor &desc, size_t len)
     status.clear_flags(statusf::complete | statusf::dma_errors);
 
     // Update tail descriptor to point to the current buffer descriptor
-    ptrdiff_t desc_offset = sg_descriptor_chain::distance(sg_desc_chain.begin(), sg_descriptor_chain::iterator{&desc});
+    ptrdiff_t desc_offset = sg_desc_chain.offset(sg_descriptor_chain::iterator{&desc});
     const uintptr_t &desc_base_phys_addr = udmabuf.phys_addr; // just an alias for clarity
     const uintptr_t tail_desc = desc_base_phys_addr + sizeof(sg_descriptor) * desc_offset;
 
@@ -436,7 +436,7 @@ size_t axi_dma::get_buffer_size() const
  * @param desc Buffer descriptor
  * @return a pointer to virtual memory
  */
-uint8_t *axi_dma::get_virt_buffer_pointer(const sg_descriptor &desc) const
+uint8_t *axi_dma::get_virt_buffer_pointer(sg_descriptor &desc) const
 {
-    return buffers + (sg_descriptor_chain::distance(sg_desc_chain.const_begin(), sg_descriptor_chain::const_iterator{&desc})) * buffer_size;
+    return buffers + sg_desc_chain.offset(sg_descriptor_chain::iterator{desc}) * buffer_size;
 }
