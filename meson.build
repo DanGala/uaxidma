@@ -1,5 +1,5 @@
 project('uaxidmalib', 'cpp',
-  version : '1.0',
+  version : '0.1.0',
   default_options : ['warning_level=3',
                      'cpp_std=gnu++20',
                      'default_library=both',
@@ -23,13 +23,21 @@ endif
 git = find_program('git', required: false)
 
 if git.found()
-  git_tag = run_command('git', 'describe', '--always', check: true)
-  tag_info = git_tag.stdout().strip()
+  git_tag = run_command('git', 'describe', '--tags', check: false)
+  if git_tag.stdout() != ''
+    tag_info = git_tag.stdout().strip()
+    lib_version = tag_info
+  else
+    warning('tag not found, using meson project version as current version')
+    tag_info = ''
+    lib_version = meson.project_version()
+  endif
 else
-  tag_info = 'v0.0.0'
   warning('git not found, no information about current version')
+  tag_info = ''
+  lib_version = meson.project_version()
 endif
-message('Current version info: ' + tag_info)
+message('Current version info: ' + lib_version)
 data_git = configuration_data()
 data_git.set('CURRENT_GIT_TAG', tag_info)
 
@@ -49,6 +57,8 @@ uio_dep = declare_dependency(
 uio_lib = library('uio',
                   sources : [uio_sources],
                   dependencies : uio_dep,
+                  version: lib_version,
+                  soversion: lib_version.split('.')[0],
 			            c_args: [static_analyzer_flag],
                   link_with: [],
 			            install: true)
@@ -60,6 +70,8 @@ dma_dep = declare_dependency(
 dma_lib = library('uaxidma',
                   sources : [dma_sources],
                   dependencies : dma_dep,
+                  version: lib_version,
+                  soversion: lib_version.split('.')[0],
 			            c_args: [static_analyzer_flag],
                   link_with: [],
 			            install: true)
@@ -97,18 +109,16 @@ async_tx_demo = executable('async_tx_demo',
 # ==========  
 install_headers(['include' / 'uaxidma.h'])
 
-lib_version = tag_info.substring(1).split('-')[0]
-
 pkg_mod = import('pkgconfig')
 pkg_mod.generate(dma_lib,
                  version : lib_version,
-                 name : 'libuaxidma',
+                 name : 'uaxidma',
                  filebase : 'libuaxidma',
                  description : 'User space DMA library for transferring data between PL and PS')
 
 pkg_mod.generate(uio_lib,
                  version : lib_version,
-                 name : 'libuio',
+                 name : 'uio',
                  filebase : 'libuio',
                  description : 'User space IO wrapper library for managing UIO devices')
 
